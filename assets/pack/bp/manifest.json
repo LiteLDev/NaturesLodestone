@@ -1,0 +1,21 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "NaturesLodestone BP",
+    "description": "Blocks, items and recipes of NaturesLodestone (Nature's Compass for Bedrock)",
+    "uuid": "ab2ce7ad-9cb4-4638-bc52-5ef6f78131a2",
+    "version": "${version}",
+    "min_engine_version": [
+      1,
+      21,
+      40
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "bd0aafb7-c87c-4267-8d72-b987a3573ef5",
+      "version": "${version}"
+    }
+  ]
+}

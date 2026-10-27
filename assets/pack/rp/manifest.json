@@ -1,0 +1,21 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "NaturesLodestone RP",
+    "description": "Textures, models and names of NaturesLodestone (Nature's Compass for Bedrock)",
+    "uuid": "8084f101-6a38-42e5-bafb-989386648016",
+    "version": "${version}",
+    "min_engine_version": [
+      1,
+      21,
+      40
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "a622c573-7685-4d8a-825d-b8ace3e50382",
+      "version": "${version}"
+    }
+  ]
+}
