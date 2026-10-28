@@ -1,5 +1,39 @@
 {
   "naturescompass": {
-    "textures": "textures/items/naturescompass"
+    "textures": [
+      "textures/items/naturescompass",
+      "textures/items/naturescompass_00",
+      "textures/items/naturescompass_01",
+      "textures/items/naturescompass_02",
+      "textures/items/naturescompass_03",
+      "textures/items/naturescompass_04",
+      "textures/items/naturescompass_05",
+      "textures/items/naturescompass_06",
+      "textures/items/naturescompass_07",
+      "textures/items/naturescompass_08",
+      "textures/items/naturescompass_09",
+      "textures/items/naturescompass_10",
+      "textures/items/naturescompass_11",
+      "textures/items/naturescompass_12",
+      "textures/items/naturescompass_13",
+      "textures/items/naturescompass_14",
+      "textures/items/naturescompass_15",
+      "textures/items/naturescompass_16",
+      "textures/items/naturescompass_17",
+      "textures/items/naturescompass_18",
+      "textures/items/naturescompass_19",
+      "textures/items/naturescompass_20",
+      "textures/items/naturescompass_21",
+      "textures/items/naturescompass_22",
+      "textures/items/naturescompass_23",
+      "textures/items/naturescompass_24",
+      "textures/items/naturescompass_25",
+      "textures/items/naturescompass_26",
+      "textures/items/naturescompass_27",
+      "textures/items/naturescompass_28",
+      "textures/items/naturescompass_29",
+      "textures/items/naturescompass_30",
+      "textures/items/naturescompass_31"
+    ]
   }
 }
