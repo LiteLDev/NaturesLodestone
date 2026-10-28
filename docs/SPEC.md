@@ -146,6 +146,11 @@ matters: the GUI, every action, the HUD and the needle look at the held stack on
   did not change; on Bedrock the inventory update causes no re-equip animation anyway.
 - Use applies to right-clicking in the air and on a block (NC `use` is reached for both when the
   block does nothing).
+- We (U4): both the air and the block use event count; a block click is left to the block when the
+  player does not sneak and the block is interactive. Events closer than 6 ticks to the previous
+  one (held button, block + air event of one click) belong to the same click: one action per
+  click. The action runs on the next tick (item writes inside the game's use handling could be
+  overwritten). Log lines: `Compass used by <name>: Select Biome`, `Compass reset by <name>`.
 
 ### 3.3 Search
 
@@ -239,6 +244,14 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   player is on the ground.
 - After a dimension change with a Found compass, teleport (like the needle and the HUD distance)
   uses the same x/z in the new dimension.
+- We (U4): sea level is 63 in the overworld and the dimension's sea level elsewhere; the build
+  height is the dimension's (min y .. max y, exclusive); blocks outside it count as free; the
+  y 256 fallback is clamped to the max y. Free = air, `minecraft:fire` / `minecraft:soul_fire`, a
+  liquid material, or a block that can be built over. NC loads the target chunk synchronously; we
+  move the player to the target column above the build height, wait (up to 20 s) until the chunk is
+  fully loaded, then probe and teleport (on timeout, logout or mod disable the player goes back;
+  a player who dies or is moved away meanwhile is left alone). Log line:
+  `Player <name> teleported to <x> <y> <z>`.
 
 ### 3.6 Biome catalog
 
@@ -311,6 +324,13 @@ We (U2, `src/feature/biomes/`, `src/core/BiomeText.*`):
   same fraction (U4: mirror `damage` onto the item's Bedrock damage, scaled to the item's
   `max_durability`, and add the durability component to the item JSON if needed; the vanilla
   repair paths (anvil, grindstone, crafting-grid combine) must not apply).
+- We (U4): the item has `minecraft:durability` with `max_durability` 10000 and `damage_chance`
+  0..0 (vanilla use never damages it). Every 10 ticks (and on `actions::refreshDurability`) each
+  compass a player carries gets the Bedrock damage round(10000 * damage / compassDurability)
+  (at least 1 while damaged; 9999 when broken: an empty bar that a stray vanilla durability hit
+  can't turn into a destroyed item; 0 without damage or with durability 0).
+  `damage` in the compass data stays the only truth: a vanilla repair (anvil / grindstone)
+  only changes the bar, which the next sync puts back; broken-ness never reads the Bedrock damage.
 
 ### 3.8 Needle
 
@@ -400,7 +420,7 @@ NC's only screen (there is no info screen in 3.3.1). NC layout (GUI pixels):
   ascending.
 - Filter (search box), recomputed on every change, case-insensitive "contains": `$term` matches
   the tags text, `@term` matches the source, anything else the display name.
-- On open the found biome (state Found) is pre-selected; the filter is empty and the list
+- On open the found biome (state Found) is pre-selected (we: only when affordable); the filter is empty and the list
   scrolled to the top.
 
 **Our form** (deviation 1.3.1): title "Select Biome"; a text field (filter, same `$` / `@`
@@ -410,6 +430,38 @@ row highlighted; "Search", "Search for Next" (when visible) and "Teleport" (when
 NC's active rules; "Cancel" (`string.naturescompass.cancel`). The data-driven `ll::ui` form
 updates in place (filter, sort, selection); the classic-form fallback rebuilds the form instead.
 U5 owns the details; it reads only the contracts (`Biomes.h`, `Actions.h`, `CompassData.h`).
+
+Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
+
+- **Model.** One `SelectBiomeModel` per open screen: rows (catalog order), filter, sort mode,
+  selection. Changing the filter or the sort rebuilds the list like NC's `refreshList`: the
+  selection is dropped and the list starts at the top. Rows the player can't afford stay listed
+  (greyed) but can't be selected. A click on the selected row is NC's double click (Search). The
+  data the screen shows (catalog, XP level, compass state, `canTeleport`) is read once when it
+  opens, like NC's sync packet.
+- **Data-driven form** (default, `ll::ui::CustomForm`, rendered by the client's Ore UI): a text
+  field "Search" (the client reports every edit, so the list re-filters live as in NC), then
+  Search, Search for Next, Sort By, Teleport, Cancel, a divider and one button + one label per
+  biome. Ore UI shows neither formatting codes nor line breaks in button labels, so a row is a
+  button with line 1 (`<name>`, `[<levels>]` when the cost is > 0, `> ... <` around the selected
+  row) and a label below it with lines 2-4 (grey). Unaffordable rows are disabled buttons
+  (greyed by the client). Hidden/disabled states are observables, so nothing is re-sent. The
+  JSON-UI skin cannot reach Ore UI screens.
+- **Classic form** (fallback when the data-driven form can't be shown; `/naturescompass gui
+  classic|ddui|auto` switches it for testing): an `ll::form::SimpleForm` re-sent after every
+  click. Its title and buttons carry invisible formatting-code markers
+  (`src/feature/gui/GuiMarkers.h`); the RP skin (`ui/nl_gui_screen.json` + the `ui/server_form.json`
+  modification, scoped by the title marker) draws NC's layout from them: title at the top left,
+  Search / Search for Next / Sort By (10 px lower under Next) in the left column, Teleport at the
+  top right, Cancel at the bottom left, the search box at (130, 10) and the scrolling list of
+  4-line rows (with the enchanting table's level icons `textures/ui/dust_(un)selectable_N`) on
+  the right, with NC's fills (0x7F / 0xB8 hovered or selected / 0x2B inactive or unaffordable).
+  The search box opens a one-field input form; the filter applies on submit. Without the RP the
+  classic form is a plain vanilla button list (rows show their first lines).
+- Log lines (e2e): `Select Biome opened for <player> (<n> biomes, <data-driven|classic> form,
+  selected '<id>')`, `Select Biome: <player> filter '<text>' (<n> listed)`, `... sort by <Mode>`,
+  `... selected <id>`, `... chose <Search|Search for Next|Teleport> (<id>)`, `... chose Cancel`,
+  `... closed the screen`.
 
 ### 4.3 HUD
 
@@ -517,6 +569,7 @@ NC has no commands. Ours (`/naturescompass`, alias `/natureslodestone`) are tool
 | --- | --- | --- |
 | `/naturescompass reload` | operators, console | reload configs and translations |
 | `/naturescompass selftest ["glob"]` | operators, console | run the in-game selftests |
+| `/naturescompass damage <n>` | operators | debug (U4): set the held compass's `damage` (durability bar in e2e) |
 
 Units may add debug sub-commands through `NL_REGISTER_SUBCOMMAND`; there is no gameplay command.
 NC has no advancements besides the two recipe unlocks (2.2), no sounds of its own (Search and
