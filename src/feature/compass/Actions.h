@@ -9,6 +9,7 @@
 
 #include <string>
 
+class BlockPos;
 class Player;
 
 namespace nl::feature::actions {
@@ -21,6 +22,10 @@ bool onUse(Player& player, bool sneaking);
 /// "Search" (NC search packet): unless broken, takes the biome's XP cost (not in creative) and
 /// starts a search for `biomeId` from the player's block position.
 void search(Player& player, std::string const& biomeId);
+
+/// "Search" from an explicit start position (block position; its y is the first y level), e.g.
+/// the position the player had when the screen sent the request. Same rules as `search`.
+void search(Player& player, std::string const& biomeId, BlockPos const& start);
 
 /// "Search for Next": unless broken and only when the compass is Found and maxNextSearches > 0,
 /// takes the XP cost and searches for the next instance of the Found biome.
@@ -38,5 +43,10 @@ void teleport(Player& player);
 
 /// The player can pay `levels` XP levels (or has infinite XP).
 [[nodiscard]] bool canAfford(Player const& player, int levels);
+
+/// Mirrors the `damage` of every compass the player carries onto its Bedrock durability bar
+/// (docs/SPEC.md 3.7). Runs by itself every few ticks; writers of `damage` may call it to show a
+/// change at once.
+void refreshDurability(Player& player);
 
 } // namespace nl::feature::actions

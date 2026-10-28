@@ -146,6 +146,11 @@ matters: the GUI, every action, the HUD and the needle look at the held stack on
   did not change; on Bedrock the inventory update causes no re-equip animation anyway.
 - Use applies to right-clicking in the air and on a block (NC `use` is reached for both when the
   block does nothing).
+- We (U4): both the air and the block use event count; a block click is left to the block when the
+  player does not sneak and the block is interactive. Events closer than 6 ticks to the previous
+  one (held button, block + air event of one click) belong to the same click: one action per
+  click. The action runs on the next tick (item writes inside the game's use handling could be
+  overwritten). Log lines: `Compass used by <name>: Select Biome`, `Compass reset by <name>`.
 
 ### 3.3 Search
 
@@ -239,6 +244,14 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   player is on the ground.
 - After a dimension change with a Found compass, teleport (like the needle and the HUD distance)
   uses the same x/z in the new dimension.
+- We (U4): sea level is 63 in the overworld and the dimension's sea level elsewhere; the build
+  height is the dimension's (min y .. max y, exclusive); blocks outside it count as free; the
+  y 256 fallback is clamped to the max y. Free = air, `minecraft:fire` / `minecraft:soul_fire`, a
+  liquid material, or a block that can be built over. NC loads the target chunk synchronously; we
+  move the player to the target column above the build height, wait (up to 20 s) until the chunk is
+  fully loaded, then probe and teleport (on timeout, logout or mod disable the player goes back;
+  a player who dies or is moved away meanwhile is left alone). Log line:
+  `Player <name> teleported to <x> <y> <z>`.
 
 ### 3.6 Biome catalog
 
@@ -311,6 +324,13 @@ We (U2, `src/feature/biomes/`, `src/core/BiomeText.*`):
   same fraction (U4: mirror `damage` onto the item's Bedrock damage, scaled to the item's
   `max_durability`, and add the durability component to the item JSON if needed; the vanilla
   repair paths (anvil, grindstone, crafting-grid combine) must not apply).
+- We (U4): the item has `minecraft:durability` with `max_durability` 10000 and `damage_chance`
+  0..0 (vanilla use never damages it). Every 10 ticks (and on `actions::refreshDurability`) each
+  compass a player carries gets the Bedrock damage round(10000 * damage / compassDurability)
+  (at least 1 while damaged; 9999 when broken: an empty bar that a stray vanilla durability hit
+  can't turn into a destroyed item; 0 without damage or with durability 0).
+  `damage` in the compass data stays the only truth: a vanilla repair (anvil / grindstone)
+  only changes the bar, which the next sync puts back; broken-ness never reads the Bedrock damage.
 
 ### 3.8 Needle
 
@@ -477,6 +497,7 @@ NC has no commands. Ours (`/naturescompass`, alias `/natureslodestone`) are tool
 | --- | --- | --- |
 | `/naturescompass reload` | operators, console | reload configs and translations |
 | `/naturescompass selftest ["glob"]` | operators, console | run the in-game selftests |
+| `/naturescompass damage <n>` | operators | debug (U4): set the held compass's `damage` (durability bar in e2e) |
 
 Units may add debug sub-commands through `NL_REGISTER_SUBCOMMAND`; there is no gameplay command.
 NC has no advancements besides the two recipe unlocks (2.2), no sounds of its own (Search and
