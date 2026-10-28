@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+#include "core/BiomeText.h" // javaFloatToString
+
 namespace nl::core {
 
 /// NC's sort modes, in cycling order.
@@ -37,11 +39,6 @@ inline constexpr int kBiomeSortModeCount = 7;
 /// Row line 2 shows `Dimension: <dims>` for Name / Source / Tags / Dimension, else
 /// `<Mode>: <value>`.
 [[nodiscard]] bool showsDimensionLine(BiomeSortMode mode);
-
-/// Java's `Float.toString`: the shortest decimal that reads back as `value`, with at least one
-/// digit after the point ("0.8", "2.0", "-0.5"); scientific ("1.0E-5", "1.0E7") below 1e-3 and
-/// from 1e7 on; "NaN", "Infinity", "-Infinity".
-[[nodiscard]] std::string javaFloatToString(float value);
 
 /// Cuts `text` to at most `maxChars` code points, ending in "..." when cut (NC cuts the tags
 /// line to the row width). `maxChars` < 4 returns "...".

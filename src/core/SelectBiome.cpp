@@ -1,12 +1,10 @@
 #include "core/SelectBiome.h"
 
+#include "core/BiomeText.h"
+
 #include <algorithm>
 #include <array>
-#include <charconv>
-#include <cmath>
-#include <cstdlib>
 #include <numeric>
-#include <system_error>
 
 namespace nl::core {
 
@@ -75,50 +73,6 @@ bool showsDimensionLine(BiomeSortMode mode) {
     default:
         return false;
     }
-}
-
-std::string javaFloatToString(float value) {
-    if (std::isnan(value)) return "NaN";
-    if (std::isinf(value)) return value > 0 ? "Infinity" : "-Infinity";
-    if (value == 0.f) return std::signbit(value) ? "-0.0" : "0.0";
-
-    // Shortest round-trip digits, as "d.ddde±xx".
-    std::array<char, 64> buf{};
-    auto [end, ec] = std::to_chars(buf.data(), buf.data() + buf.size(), value, std::chars_format::scientific);
-    if (ec != std::errc{}) return "0.0";
-    std::string_view sci(buf.data(), static_cast<std::size_t>(end - buf.data()));
-
-    bool negative = false;
-    if (!sci.empty() && sci.front() == '-') {
-        negative = true;
-        sci.remove_prefix(1);
-    }
-    auto        ePos = sci.find('e');
-    std::string digits;
-    for (char c : sci.substr(0, ePos)) {
-        if (c != '.') digits += c;
-    }
-    while (digits.size() > 1 && digits.back() == '0') digits.pop_back();
-    int exponent = std::atoi(std::string(sci.substr(ePos + 1)).c_str());
-
-    std::string out = negative ? "-" : "";
-    float       mag = std::fabs(value);
-    if (mag >= 1e-3f && mag < 1e7f) {
-        if (exponent >= 0) {
-            auto intLen = static_cast<std::size_t>(exponent) + 1;
-            if (digits.size() <= intLen) {
-                out += digits + std::string(intLen - digits.size(), '0') + ".0";
-            } else {
-                out += digits.substr(0, intLen) + "." + digits.substr(intLen);
-            }
-        } else {
-            out += "0." + std::string(static_cast<std::size_t>(-exponent - 1), '0') + digits;
-        }
-    } else {
-        out += digits.substr(0, 1) + "." + (digits.size() > 1 ? digits.substr(1) : std::string("0"));
-        out += "E" + std::to_string(exponent);
-    }
-    return out;
 }
 
 std::string ellipsize(std::string_view text, std::size_t maxChars) {

@@ -97,12 +97,12 @@ NL_REGISTER_SELFTEST("gui.row_lines", [](Context& ctx) {
         "Levels sort: line 2"
     );
     ctx.check(
-        gui::rowLines(r, BiomeSortMode::Rainfall, "en_US")[1] == "Rainfall: " + nl::core::javaFloatToString(r.rainfall),
+        gui::rowLines(r, BiomeSortMode::Rainfall, "en_US")[1] == "Rainfall: " + biomes::rainfallText(biomes::findBiome(r.id) ? *biomes::findBiome(r.id) : biomes::BiomeInfo{}),
         "Rainfall sort: line 2"
     );
     ctx.check(
         gui::rowLines(r, BiomeSortMode::Temperature, "en_US")[1]
-            == "Temperature: " + nl::core::javaFloatToString(r.temperature),
+            == "Temperature: " + biomes::temperatureText(biomes::findBiome(r.id) ? *biomes::findBiome(r.id) : biomes::BiomeInfo{}),
         "Temperature sort: line 2"
     );
     ctx.check(gui::sortButtonText(BiomeSortMode::Name, "en_US") == "Sort By: Name", "Sort By: Name");

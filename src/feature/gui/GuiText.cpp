@@ -27,6 +27,8 @@ std::vector<core::BiomeRow> buildRows(Player const& player, std::string const& l
         r.source      = biomes::sourceText(b, locale);
         r.temperature = b.temperature;
         r.rainfall    = b.downfall;
+        r.temperatureText = biomes::temperatureText(b);
+        r.rainfallText    = biomes::rainfallText(b);
         r.xpLevels    = b.xpLevels;
         r.affordable  = actions::canAfford(player, b.xpLevels);
         rows.push_back(std::move(r));
