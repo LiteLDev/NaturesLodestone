@@ -1,0 +1,76 @@
+{
+  "namespace": "nl_hud",
+
+  "line_block": {
+    "type": "label",
+    "size": [ "default", "default" ],
+    "text": "#text",
+    "color": [ 1.0, 1.0, 1.0 ],
+    "shadow": true,
+    "localize": false,
+    "enable_profanity_filter": false,
+    "line_padding": "$nl_line_padding",
+    "$nl_line_padding|default": 0.0,
+    "layer": 1,
+    "bindings": [
+      {
+        "binding_type": "view",
+        "source_control_name": "nl_hud_data",
+        "source_property_name": "(#nl_text - $nl_marker)",
+        "target_property_name": "#text"
+      },
+      {
+        "binding_type": "view",
+        "source_control_name": "nl_hud_data",
+        "source_property_name": "(not ((#nl_text - $nl_marker) = #nl_text))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "block": {
+    "type": "panel",
+    "size": [ "100%", "100%" ],
+    "layer": 30,
+    "controls": [
+      {
+        "nl_hud_data": {
+          "type": "panel",
+          "size": [ 0, 0 ],
+          "property_bag": { "#nl_text": "" },
+          "bindings": [
+            { "binding_name": "#hud_title_text_string" },
+            {
+              "binding_name": "#hud_title_text_string",
+              "binding_name_override": "#nl_text",
+              "binding_condition": "visibility_changed"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "((not (#hud_title_text_string = #nl_text)) and (not (((#hud_title_text_string - '§r§N§C§L') - '§r§N§C§R') = #hud_title_text_string)))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "nl_hud_left@nl_hud.line_block": {
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [ 7, 7 ],
+          "text_alignment": "left",
+          "$nl_marker": "§r§N§C§L"
+        }
+      },
+      {
+        "nl_hud_right@nl_hud.line_block": {
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "offset": [ -7, 7 ],
+          "text_alignment": "right",
+          "$nl_marker": "§r§N§C§R"
+        }
+      }
+    ]
+  }
+}

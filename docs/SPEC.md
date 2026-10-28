@@ -432,6 +432,41 @@ U5 owns the details; it reads only the contracts (`Biomes.h`, `Actions.h`, `Comp
   get the block as a marked title/actionbar string from the server, rendered by the RP's
   `hud_screen.json` modification at the same place, with the same colours and line spacing.
 
+**Our implementation** (U6). The line model is `src/core/HudLines.h` (game-free, unit-tested);
+`src/feature/hud/HudModel.h` resolves it for a player (held compass, translated labels and raw
+biome name in the viewer's language, the player's block position).
+
+- **Native overlay** (client build, `src/client/hud/`): `AfterUIRenderEvent` of the `hud_screen`
+  view, drawn with the client's UI font through `MinecraftUIRenderContext::drawText` (shadow on)
+  at the GUI-scaled positions above. Shown only while the top screen is `hud_screen`, or a chat
+  screen with `displayWithChatOpen`; hidden while the HUD is hidden (F1). Bedrock has no debug
+  screen. Reads the client's own copy of the held stack, so it works in local worlds and on a BDS
+  running the server build. The client's `naturescompass_client.json` drives it.
+- **Server fallback** (`src/feature/hud/Hud.cpp`): every 2 ticks (and on `hud::refresh`) the
+  server builds the block for each player and sends it as a **title** (`SetTitlePacket` Title)
+  only when the string changed (state, data, live distance, language, side, offset), plus after a
+  dimension change or a respawn. The string is a marker followed by the rows: `§r§N§C§L` (left) or
+  `§r§N§C§R` (right), then `overlayLineOffset` empty rows, then one row per NC line (`§f` label,
+  `§7` value = 0xAAAAAA, empty rows between), `\n` separated. Inactive / no compass sends nothing;
+  when a block was shown, one bare marker clears it. Side and offset come from the server's
+  `naturescompass_client.json`.
+- **RP** (`ui/hud_screen.json`, `ui/nl_hud.json`): a panel added to the HUD root keeps the last
+  marked title (`#hud_title_text_string`, kept across later unmarked titles with a
+  `visibility_changed` binding), strips the marker and shows the rows as one shadowed label at
+  x 7 / right edge - 7, y 7. The vanilla title is hidden while the current title is marked, so a
+  normal title from another source still shows (and our block stays); a marked update replaces a
+  normal title that is on screen at that moment.
+- **No double block.** The client build drops marked titles in its network handler
+  (`ClientNetworkHandler::$handle(SetTitlePacket)`), so the server needs no mod detection: it
+  sends the fallback to everyone, and modded clients (local worlds, BDS) show only the native
+  overlay.
+- **Fallback limits** (vanilla clients): the RP cannot see which screen is open, so the block also
+  shows behind other screens and `displayWithChatOpen` does not apply.
+- **Debug sub-commands** (operators, for e2e): `/naturescompass hud <searching|found|foundnocoords|notfound|inactive>`
+  writes a sample state into the held compass; `/naturescompass hud side <LEFT|RIGHT>`,
+  `hud offset <n>`, `hud chat <on|off>` change the loaded `naturescompass_client` values until the
+  next reload.
+
 ## 5. Configuration
 
 JSON files under `config/` in the mod folder, created with defaults (`NL_REGISTER_CONFIG`,
