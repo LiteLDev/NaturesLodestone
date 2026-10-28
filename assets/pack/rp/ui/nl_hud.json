@@ -10,7 +10,7 @@
     "localize": false,
     "enable_profanity_filter": false,
     "line_padding": "$nl_line_padding",
-    "$nl_line_padding|default": 0.0,
+    "$nl_line_padding|default": -1.0,
     "layer": 1,
     "bindings": [
       {

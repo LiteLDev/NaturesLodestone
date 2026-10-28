@@ -12,6 +12,7 @@ function Set-HudState([string]$state) {
 }
 
 Invoke-Chat '/gamerule sendcommandfeedback false'
+Invoke-Chat '/gamerule showcoordinates false'   # the vanilla position line sits where line 4 is
 Invoke-Chat '/clear @s'
 Invoke-Chat '/give @s natureslodestone:naturescompass'
 Start-Sleep -Milliseconds 4000           # the "given" chat line and item name popup fade
@@ -31,14 +32,24 @@ Start-Sleep -Milliseconds 6000
 Save-Screenshot 'notfound-left' | Out-Null
 
 # Chat open: still drawn (displayWithChatOpen = true by default).
-Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1200
+Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1500
 Save-Screenshot 'chat-open' | Out-Null
-Press-Key ESC; Start-Sleep -Milliseconds 800
+Close-Screen; Start-Sleep -Milliseconds 1500
 
 # Any other screen hides it (native overlay).
-Open-Inventory
+Open-Inventory; Start-Sleep -Milliseconds 800
 Save-Screenshot 'inventory' | Out-Null
-Close-Screen
+Close-Screen; Start-Sleep -Milliseconds 1500
+
+if ($script:Mode -eq 'remote-mod') {
+    # The debug side/offset/chat commands change the server's config; the native overlay reads
+    # the client's own naturescompass_client.json, so the rest of the layout steps are local only.
+    Set-HudState 'inactive'
+    Wait-LogLine 'HUD fallback title dropped' 5 | Out-Null
+    $r = Invoke-SelfTest 'hud.*'
+    if ($r.Fail -gt 0) { throw "$($r.Fail) hud selftest(s) failed" }
+    return
+}
 
 Invoke-Chat '/naturescompass hud side RIGHT'
 Wait-LogLine 'HUD debug overlaySide RIGHT' 15 | Out-Null
@@ -60,13 +71,20 @@ Save-Screenshot 'offset3' | Out-Null
 Invoke-Chat '/naturescompass hud chat off'
 Wait-LogLine 'HUD debug displayWithChatOpen false' 15 | Out-Null
 Start-Sleep -Milliseconds 6000
-Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1200
+Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1500
 Save-Screenshot 'chat-hidden' | Out-Null   # native overlay: hidden with chat open
-Press-Key ESC; Start-Sleep -Milliseconds 800
+Close-Screen; Start-Sleep -Milliseconds 1500
 
 Set-HudState 'inactive'
 Start-Sleep -Milliseconds 6000
 Save-Screenshot 'cleared' | Out-Null
+
+# A normal title still shows (the RP hides only marked titles) and leaves the block alone.
+Set-HudState 'searching'
+Invoke-Chat '/title @s title Hello'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'vanilla-title' | Out-Null
+Set-HudState 'inactive'
 
 if ($modded) {
     # The server sent marked titles; the modded client dropped them (no double block).

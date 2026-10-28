@@ -5,9 +5,8 @@
 
 #ifdef NL_CLIENT
 
-#include <algorithm>
 #include <string>
-#include <vector>
+#include <string_view>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/ListenerBase.h"
@@ -48,28 +47,21 @@ bool isHudScreen(std::string_view name) { return name == "hud_screen"; }
 bool isChatScreen(std::string_view name) { return name.find("chat_screen") != std::string_view::npos; }
 
 /// NC: hidden with the HUD hidden (F1) and while any screen but chat (displayWithChatOpen) is open.
-bool overlayVisible(ClientInstance& client) {
+/// Drawn after the top screen only: the HUD screen, or the chat screen (it dims what is below it,
+/// so the block is drawn on top of it, as NC's HUD stays readable with chat open).
+bool drawAfter(ClientInstance& client, std::string_view rendered) {
+    if (!isHudScreen(rendered) && !isChatScreen(rendered)) return false;
     if (client.getOptions().getHideHud()) return false;
     auto top = client.getTopScreenName();
-    if (isHudScreen(top)) return true;
-    return isChatScreen(top) && feature::compass::displayWithChatOpen();
+    if (top != rendered) return false;
+    return isHudScreen(top) || feature::compass::displayWithChatOpen();
 }
 
 void drawOverlay(ll::event::AfterUIRenderEvent& ev) {
-    { // TEMP diagnostics
-        static std::vector<std::string> seen;
-        auto                            n = ev.screenView().getScreenName();
-        if (seen.size() < 12 && std::find(seen.begin(), seen.end(), n) == seen.end()) {
-            seen.push_back(n);
-            auto* c = currentClient();
-            log().info("HUD diag screen '{}' top '{}'", n, c ? c->getTopScreenName() : "");
-        }
-    }
-    if (!isHudScreen(ev.screenView().getScreenName())) return;
     auto* client = currentClient();
-    if (!client) return;
+    if (!client || !drawAfter(*client, ev.screenView().getScreenName())) return;
     auto* player = client->getLocalPlayer();
-    if (!player || !overlayVisible(*client)) return;
+    if (!player) return;
     auto lines = model::linesFor(*player, clientLocale());
     if (lines.empty()) return;
 

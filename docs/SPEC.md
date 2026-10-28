@@ -460,8 +460,13 @@ biome name in the viewer's language, the player's block position).
   (`ClientNetworkHandler::$handle(SetTitlePacket)`), so the server needs no mod detection: it
   sends the fallback to everyone, and modded clients (local worlds, BDS) show only the native
   overlay.
-- **Fallback limits** (vanilla clients): the RP cannot see which screen is open, so the block also
-  shows behind other screens and `displayWithChatOpen` does not apply.
+- **Fallback limits** (vanilla clients): the RP cannot see which screen is open, so
+  `displayWithChatOpen` does not apply; Bedrock's chat and other screens cover the HUD screen, so
+  the block is not visible behind them. The rows are one label with `line_padding` -1 (Bedrock's
+  font line is 10 px, NC's 9). Each change of the live distance re-sends the title, so a normal
+  title shown at that moment is replaced while the player walks with a Found compass.
+- The native overlay is drawn after the top screen: the HUD screen, or the chat screen (on top of
+  its dimming) when `displayWithChatOpen`.
 - **Debug sub-commands** (operators, for e2e): `/naturescompass hud <searching|found|foundnocoords|notfound|inactive>`
   writes a sample state into the held compass; `/naturescompass hud side <LEFT|RIGHT>`,
   `hud offset <n>`, `hud chat <on|off>` change the loaded `naturescompass_client` values until the

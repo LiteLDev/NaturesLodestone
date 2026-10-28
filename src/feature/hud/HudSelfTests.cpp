@@ -168,7 +168,8 @@ NL_REGISTER_SELFTEST("hud.fallback_encoding", [](Context& ctx) {
 
 NL_REGISTER_SELFTEST("hud.fallback_sending", [](Context& ctx) -> ll::coro::CoroTask<> {
     ClientConfigGuard guard;
-    Player&           p = ctx.spawnPlayer("nl_hud_send");
+    nl::config::mut<compass::CompassClientConfig>().overlaySide = "LEFT"; // restored by the guard
+    Player& p                                                   = ctx.spawnPlayer("nl_hud_send");
     // Inactive (no compass at all, then an Inactive compass): nothing is ever sent.
     hud::refresh(p);
     co_await ctx.ticks(4);

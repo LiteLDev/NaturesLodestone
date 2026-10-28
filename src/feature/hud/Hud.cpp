@@ -15,6 +15,7 @@
 #include "feature/compass/Hud.h"
 
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ll/api/command/CommandHandle.h"
 #include "ll/api/event/EventBus.h"
@@ -48,6 +49,8 @@ namespace {
 
 /// Ticks between two fallback updates (the live distance changes as the player moves).
 constexpr int kUpdateInterval = 2;
+/// Ticks between two sweeps that forget players no longer online.
+constexpr int kPruneInterval = 200;
 
 struct Sent {
     std::string text;          ///< last string sent
@@ -88,8 +91,9 @@ void update(Player& player) {
     if (lines.empty()) {
         // Nothing to show: never send for a player that shows nothing; clear a shown block once.
         if (it == gSent.end()) return;
-        auto clear = fallbackText({});
-        if (it->second.text != clear || it->second.force) {
+        auto shown = core::hud::decodeFallback(it->second.text);
+        if (shown && !shown->lines.empty()) {
+            auto clear = fallbackText({});
             sendTitle(player, clear);
             it->second.text = clear;
             ++it->second.count;
@@ -210,10 +214,15 @@ public:
             if (++mTick % kUpdateInterval) return;
             auto level = ll::service::getLevel();
             if (!level) return;
-            level->forEachPlayer([](Player& p) {
+            bool                             prune = mTick % kPruneInterval == 0;
+            std::unordered_set<std::int64_t> online;
+            level->forEachPlayer([&](Player& p) {
                 detail::update(p);
+                if (prune) online.insert(keyOf(p));
                 return true;
             });
+            // Players that left without a disconnect event (simulated players of selftests).
+            if (prune) std::erase_if(gSent, [&](auto const& e) { return !online.contains(e.first); });
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::PlayerDisconnectEvent>([](auto& ev) {
             gSent.erase(keyOf(ev.self()));
@@ -230,6 +239,16 @@ public:
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
+        // Clear the blocks vanilla clients still show (the RP keeps the last marked title).
+        if (auto level = ll::service::getLevel()) {
+            level->forEachPlayer([](Player& p) {
+                auto it = gSent.find(keyOf(p));
+                if (it == gSent.end()) return true;
+                auto shown = core::hud::decodeFallback(it->second.text);
+                if (shown && !shown->lines.empty()) sendTitle(p, fallbackText({}));
+                return true;
+            });
+        }
         gSent.clear();
     }
 
