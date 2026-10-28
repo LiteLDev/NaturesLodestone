@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "natureslodestone:natures_compass"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "SLS",
+      "LCL",
+      "SLS"
+    ],
+    "key": {
+      "S": {
+        "item": "minecraft:oak_sapling"
+      },
+      "L": {
+        "tag": "minecraft:logs"
+      },
+      "C": {
+        "item": "minecraft:compass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:compass"
+      }
+    ],
+    "result": {
+      "item": "natureslodestone:naturescompass"
+    }
+  }
+}

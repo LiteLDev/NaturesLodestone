@@ -1,0 +1,26 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "natureslodestone:naturescompass",
+      "menu_category": {
+        "category": "equipment",
+        "group": "minecraft:itemGroup.name.compass"
+      }
+    },
+    "components": {
+      "minecraft:icon": "naturescompass",
+      "minecraft:display_name": {
+        "value": "item.natureslodestone:naturescompass.name"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:allow_off_hand": true,
+      "minecraft:hand_equipped": false,
+      "minecraft:tags": {
+        "tags": [
+          "minecraft:compasses"
+        ]
+      }
+    }
+  }
+}

@@ -44,6 +44,20 @@ Settings live in `config/*.json` inside the mod folder (`plugins/NaturesLodeston
 | `mod.json` | `language` | `en_US` | Language of server messages when a player's own language has no translation. |
 | | `usePlayerLocale` | `true` | Use each player's game language when a translation exists. |
 | | `requireResourcePack` | `true` | Dedicated server: players must accept the resource pack to join. |
+| `naturescompass.json` | `allowTeleport` | `true` | Operators and players in worlds with cheats can teleport to a located biome. |
+| | `maxNextSearches` | `25` | 0 to 10000. 0 hides "Search for Next", so the compass always locates the nearest biome. |
+| | `displayCoordinates` | `true` | Show the coordinates and distance of a located biome on the HUD. |
+| | `radiusModifier` | `2500` | 0 to 1000000. The maximum search radius is 4 × this, in blocks. |
+| | `sampleSpaceModifier` | `16` | 0 to 1000000. The distance between two samples is 4 × this, in blocks. Lower is more accurate and slower. |
+| | `biomeBlacklist` | `[]` | Biome ids that can't be searched for. `*` matches any characters, `?` one character, e.g. `"minecraft:*ocean*"`. |
+| | `defaultXpLevels` | `0` | 0 to 3. XP levels a search costs. |
+| | `perBiomeXpLevels` | `[]` | `"biome_id,levels"` entries that override `defaultXpLevels` (wildcards allowed, at most 3 levels), e.g. `"minecraft:deep_dark,3"`. |
+| | `maxSamples` | `50000` | 0 to 1000000. Maximum samples one search takes. |
+| | `compassDurability` | `0` | 0 to 10000. Successful searches before the compass breaks and must be repaired. 0 disables durability. |
+| `naturescompass_client.json` | `displayWithChatOpen` | `true` | Show the HUD lines while the chat is open. |
+| | `fixBiomeNames` | `true` | Add missing spaces to biome names in the list ("ForestHills" becomes "Forest Hills"). |
+| | `overlayLineOffset` | `1` | 0 to 50. Line offset of the HUD lines. |
+| | `overlaySide` | `LEFT` | `LEFT` or `RIGHT`: the side of the screen for the HUD lines. |
 
 ## Contributing
 

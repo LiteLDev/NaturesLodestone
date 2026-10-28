@@ -17,7 +17,8 @@ should match the wording of Nature's Compass (they are behaviour), written into 
 | Path | What it is |
 | ---- | ---------- |
 | `src/core/` | Pure C++ (no `mc/`/`ll/` includes): `Format.h` (translation formatting), `Glob.h`, `GlobalPos.h`. Static lib `nl-core`, unit-tested in `tests/`. |
-| `src/game/` | Game adapters: `WorldDb` (LevelDB JSON + world lifecycle), `Blocks` (states, placement, positions). |
+| `src/game/` | Game adapters: `WorldDb` (LevelDB JSON + world lifecycle), `Blocks` (states, placement, positions), `Items` (`makeItem`, `itemId`, `isItem`). |
+| `src/feature/compass/` | U1: the compass item data (`CompassData.h`), both config sections (`CompassConfig.h`) and the **contract headers** of the other units (`Biomes.h`, `Search.h`, `Actions.h`, `Gui.h`, `Hud.h`; see docs/SPEC.md 9.1). Their default implementations live in the owners' directories. |
 | `src/client/` | Client side (client build only, files wrapped in `#ifdef NL_CLIENT`): `Client.h` (client instance, local player, `ctr`). |
 | `src/mod/` | Entry (`Main.cpp`), `Log.h`, `Module.h`, `Config.h`, `ModConfig.h`, `I18n.h`, `Commands.h`, `Registry.h`. |
 | `src/selftest/` | In-game test framework (`SelfTest.h`) and the foundation tests. |
@@ -25,7 +26,7 @@ should match the wording of Nature's Compass (they are behaviour), written into 
 | `src/feature/<unit>/` | Feature units (gameplay, server side; may contain `#ifdef NL_CLIENT` parts). |
 | `assets/lang/<locale>/<unit>.json` | Mod translations (server + client mod text), merged into `lang/<locale>.json`. |
 | `assets/pack/bp/` | Behavior pack: `blocks/`, `items/`, `recipes/`, `loot_tables/`, `manifest.json`. |
-| `assets/pack/rp/` | Resource pack: `textures/`, `models/`, fragments `item_texture.d/`, `terrain_texture.d/`, `blocks.d/`, `sounds.d/`, `texts.d/<locale>/*.lang`. |
+| `assets/pack/rp/` | Resource pack: `textures/`, `models/`, fragments `item_texture.d/`, `terrain_texture.d/`, `blocks.d/`, `sounds.d/`, `ui_defs.d/` (`{"ui_defs": [...]}` -> `ui/_ui_defs.json`), `texts.d/<locale>/*.lang`. |
 | `tools/build.ps1` | Builds server and/or client into `bin/<target>/NaturesLodestone/`. |
 | `tools/xmake/assemble.lua` | Post-build: copies binaries, merges lang + pack fragments. |
 | `tools/textures/lib.ps1` | Pixel-art helpers (`Save-PixelArt`, `Merge-Rows`, `Shade-Color`). |
@@ -42,7 +43,7 @@ Files a unit typically adds (`<unit>` = a short lowercase name):
 - `assets/lang/en_US/<unit>.json` + `assets/lang/zh_CN/<unit>.json` (both required).
 - BP: `assets/pack/bp/blocks/<id>.json`, `items/<id>.json`, `recipes/<id>.json`, `loot_tables/blocks/<id>.json`.
 - RP: `textures/blocks|items/*.png` (drawn by `tools/textures/<unit>.ps1`), `models/blocks/*.geo.json`,
-  fragments `terrain_texture.d/<unit>.json`, `item_texture.d/<unit>.json`, `blocks.d/<unit>.json`,
+  fragments `terrain_texture.d/<unit>.json`, `item_texture.d/<unit>.json`, `blocks.d/<unit>.json`, `ui_defs.d/<unit>.json`,
   `sounds.d/<unit>.json`, `texts.d/{en_US,zh_CN}/<unit>.lang` (block / item names).
 - Selftests in the unit's .cpp (`NL_REGISTER_SELFTEST("<unit>.<case>", ...)`), e2e scenarios in
   `tools/e2e/{server,client}/scenarios/<unit>.ps1`.
@@ -144,4 +145,4 @@ Deploying by hand: copy `bin/server/NaturesLodestone` to `<BDS>/plugins/`, or `b
 
 ## Out of scope
 
-To be filled in with docs/SPEC.md: Nature's Compass features with no Bedrock equivalent.
+See docs/SPEC.md section 8 ("Not ported") and the decided deviations in section 1.3.
