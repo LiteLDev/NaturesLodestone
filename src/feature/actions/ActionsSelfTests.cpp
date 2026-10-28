@@ -43,7 +43,7 @@ struct ConfigGuard {
 
 /// Restores the player's permissions, game type and the world's cheat flag when a test ends.
 struct PlayerGuard {
-    Player&               player;
+    Player&                player;
     CommandPermissionLevel command;
     PlayerPermissionLevel  permission;
     GameType               gameType;
@@ -108,8 +108,11 @@ CompassData dataOf(Player const& player, compass::CompassSlot slot) {
     return compass::dataAt(player, slot).value_or(broken);
 }
 
-/// Stone from y 55 to 70 at x/z with an air pocket at 66/67: NC's probe from 63 lands on 66.
+/// Stone from y 55 to 70 at x/z with an air pocket at 66/67 and air at 71/72: NC's probe from 63
+/// lands on 66, from 70 on 71 (whatever the terrain there).
 void buildPocket(Context& ctx, int x, int z) {
+    ctx.setBlock(nl::core::GlobalPos{0, x, 71, z}, "minecraft:air");
+    ctx.setBlock(nl::core::GlobalPos{0, x, 72, z}, "minecraft:air");
     for (int y = 55; y <= 70; ++y) {
         bool pocket = y == 66 || y == 67;
         ctx.setBlock(nl::core::GlobalPos{0, x, y, z}, pocket ? "minecraft:air" : "minecraft:stone");
@@ -123,7 +126,10 @@ NL_REGISTER_SELFTEST("actions.sneak_reset", [](Context& ctx) -> ll::coro::CoroTa
     auto&       player = ctx.player();
     co_await ctx.ticks(1);
     auto slot = giveCompass(ctx, player, CompassData{});
-    ctx.require(nl::feature::search::startSearch(player, slot, "minecraft:plains", player.getFeetBlockPos()), "search started");
+    ctx.require(
+        nl::feature::search::startSearch(player, slot, "minecraft:plains", player.getFeetBlockPos()),
+        "search started"
+    );
     auto searching = dataOf(player, slot);
     ctx.check(searching.state == CompassState::Searching, "the compass is searching");
     ctx.check(actions::onUse(player, true), "sneak-use is handled");
@@ -204,7 +210,7 @@ NL_REGISTER_SELFTEST("actions.xp", [](Context& ctx) -> ll::coro::CoroTask<> {
     nl::config::mut<CompassConfig>().defaultXpLevels  = 2;
     nl::config::mut<CompassConfig>().perBiomeXpLevels = {};
     nl::config::mut<CompassConfig>().maxNextSearches  = 25;
-    auto slot = giveCompass(ctx, player, CompassData{});
+    auto slot                                         = giveCompass(ctx, player, CompassData{});
     ctx.require(nl::feature::biomes::xpLevelsFor("minecraft:plains") == 2, "the config XP cost applies");
 
     player.setPlayerGameType(GameType::Survival);
@@ -248,21 +254,21 @@ NL_REGISTER_SELFTEST("actions.durability_bar", [](Context& ctx) -> ll::coro::Cor
     auto barOf = [&](compass::CompassSlot s) { return static_cast<int>(compass::stackAt(player, s).getDamageValue()); };
 
     nl::config::mut<CompassConfig>().compassDurability = 4;
-    auto slot = giveCompass(ctx, player, foundAt(1, 1, 1));
+    auto slot                                          = giveCompass(ctx, player, foundAt(1, 1, 1));
     actions::refreshDurability(player);
     ctx.check(barOf(slot) == actions::kBarMaxDamage / 4, "damage 1 of 4 shows a quarter of the bar used");
     ctx.check(dataOf(player, slot).damage == 1 && dataOf(player, slot).state == CompassState::Found, "data kept");
 
     compass::storeAt(player, slot, foundAt(1, 1, 4));
     co_await ctx.ticks(25); // the periodic sync
-    ctx.check(barOf(slot) == actions::kBarMaxDamage, "a broken compass shows an empty bar (periodic sync)");
+    ctx.check(barOf(slot) == actions::kBarMaxDamage - 1, "a broken compass shows an empty bar (periodic sync)");
 
     // a vanilla repair only changes the bar: the next sync restores it from the data
     ItemStack repaired = compass::stackAt(player, slot);
     repaired.setDamageValue(0);
     player.getInventory().setItem(slot.slot, repaired);
     actions::refreshDurability(player);
-    ctx.check(barOf(slot) == actions::kBarMaxDamage && compass::isBroken(dataOf(player, slot)), "repair bypass undone");
+    ctx.check(barOf(slot) == actions::kBarMaxDamage - 1 && compass::isBroken(dataOf(player, slot)), "repair undone");
 
     nl::config::mut<CompassConfig>().compassDurability = 0;
     actions::refreshDurability(player);
@@ -355,7 +361,10 @@ NL_REGISTER_SELFTEST("actions.teleport", [](Context& ctx) -> ll::coro::CoroTask<
     co_await ctx.ticks(2);
     auto feet = player.getFeetPos();
     ctx.check(player.getFeetBlockPos() == BlockPos(pos.x, 66, pos.z), "lands in the pocket at y 66");
-    ctx.check(feet.x == static_cast<float>(pos.x) && feet.z == static_cast<float>(pos.z), "whole-block x/z, not centred");
+    ctx.check(
+        feet.x == static_cast<float>(pos.x) && feet.z == static_cast<float>(pos.z),
+        "whole-block x/z, not centred"
+    );
     auto rot = player.getRotation();
     ctx.check(std::abs(rot.x - rotation.x) < 0.5f && std::abs(rot.y - rotation.y) < 0.5f, "keeps yaw and pitch");
 });

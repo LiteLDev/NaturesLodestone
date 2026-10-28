@@ -36,13 +36,14 @@ template <class IsFree>
 
 /// The Bedrock damage value that shows the compass durability bar with NC's fraction:
 /// `damage / durability` of `maxDamage` (the item's max_durability), at least 1 while damaged so
-/// the bar shows, never above `maxDamage`. 0 (no bar) when durability is disabled or there is no
-/// damage.
+/// the bar shows. It stays below `maxDamage` (a broken compass gets `maxDamage - 1`: an empty bar,
+/// while a full damage value would let a stray vanilla durability hit destroy the item).
+/// 0 (no bar) when durability is disabled or there is no damage.
 [[nodiscard]] inline int durabilityBarDamage(int damage, int durability, int maxDamage) {
-    if (durability <= 0 || damage <= 0 || maxDamage <= 0) return 0;
-    if (damage >= durability) return maxDamage;
+    if (durability <= 0 || damage <= 0 || maxDamage <= 1) return 0;
+    if (damage >= durability) return maxDamage - 1;
     auto scaled = static_cast<int>(std::lround(static_cast<double>(maxDamage) * damage / durability));
-    return std::clamp(scaled, 1, maxDamage);
+    return std::clamp(scaled, 1, maxDamage - 1);
 }
 
 } // namespace nl::core

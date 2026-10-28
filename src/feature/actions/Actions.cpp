@@ -10,18 +10,21 @@
 
 #include <cmath>
 #include <unordered_map>
-#include <unordered_set>
 
 #include "ll/api/chrono/GameChrono.h"
 #include "ll/api/coro/CoroTask.h"
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/ListenerBase.h"
+#include "ll/api/event/player/PlayerDisconnectEvent.h"
 #include "ll/api/event/player/PlayerInteractBlockEvent.h"
 #include "ll/api/event/player/PlayerUseItemEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/service/Bedrock.h"
 #include "ll/api/thread/ServerThreadExecutor.h"
 
+#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/deps/nbt/CompoundTagVariant.h"
+#include "mc/deps/nbt/IntTag.h"
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
@@ -186,28 +189,43 @@ void finishTeleport(Player& player, int x, int z) {
     log().info("Player {} teleported to {} {} {}", player.getRealName(), x, y, z);
 }
 
-/// Players waiting for the target column to load.
-std::unordered_set<std::int64_t> gPendingTeleports;
-std::uint64_t                    gWorldGeneration = 0;
+/// A teleport waiting for its target column to load.
+struct PendingTeleport {
+    Vec3          origin;
+    DimensionType dim;
+};
+
+/// Players waiting for the target column to load (player unique id -> where they came from).
+std::unordered_map<std::int64_t, PendingTeleport> gPendingTeleports;
+std::uint64_t                                     gWorldGeneration = 0;
 
 constexpr int kTeleportLoadTicks = 20 * 20;
 
+/// Puts a waiting player back where the teleport started (timeout, logout, mod disabled), so
+/// nobody is left at the build limit.
+void returnToOrigin(Player& player, PendingTeleport const& pending) {
+    if (player.getDimensionId() != pending.dim) return;
+    player.teleport(pending.origin, pending.dim, Vec2{player.getRotation()});
+    player.setFallDistance(0.f);
+}
+
 void teleportWhenLoaded(Player& player, int x, int z) {
-    auto id = idOf(player);
-    if (!gPendingTeleports.insert(id).second) return; // already on its way
-    auto  origin = player.getFeetPos();
-    auto  dim    = player.getDimensionId();
-    auto& region = player.getDimensionBlockSource();
-    int   holdY  = region.getMaxHeight();
+    auto id  = idOf(player);
+    auto dim = player.getDimensionId();
+    if (!gPendingTeleports.try_emplace(id, PendingTeleport{player.getFeetPos(), dim}).second) return;
+    int holdY = player.getDimensionBlockSource().getMaxHeight();
     // Go there (above any terrain) so the server loads and sends the column, then probe.
     moveTo(player, x, holdY, z);
     log().info("Player {} teleporting to {} {}: loading the target", player.getRealName(), x, z);
-    ll::coro::keepThis([id, x, z, holdY, origin, dim, generation = gWorldGeneration]() -> ll::coro::CoroTask<> {
+    ll::coro::keepThis([id, x, z, holdY, dim, generation = gWorldGeneration]() -> ll::coro::CoroTask<> {
         for (int t = 0; t < kTeleportLoadTicks; ++t) {
             co_await ll::chrono::ticks(1);
-            if (generation != gWorldGeneration) co_return; // world closed (set cleared)
+            if (generation != gWorldGeneration || !gPendingTeleports.contains(id)) co_return; // world closed, logout
             auto* player = findPlayer(id);
-            if (!player || player->getDimensionId() != dim) {
+            auto  feet   = player ? player->getFeetPos() : Vec3{};
+            // Gone, dead, or moved away by something else (another dimension, a respawn, /tp).
+            if (!player || !player->isAlive() || player->getDimensionId() != dim
+                || std::abs(feet.x - static_cast<float>(x)) > 4.f || std::abs(feet.z - static_cast<float>(z)) > 4.f) {
                 gPendingTeleports.erase(id);
                 co_return;
             }
@@ -219,22 +237,44 @@ void teleportWhenLoaded(Player& player, int x, int z) {
             }
             // Keep the player up there while waiting (no fall, no fall damage).
             player->setFallDistance(0.f);
-            if (player->getFeetPos().y < holdY - 16) moveTo(*player, x, holdY, z);
+            if (feet.y < static_cast<float>(holdY - 16)) moveTo(*player, x, holdY, z);
         }
-        gPendingTeleports.erase(id);
-        if (auto* player = findPlayer(id); player && player->getDimensionId() == dim) {
-            player->teleport(origin, dim, Vec2{player->getRotation()});
-            player->setFallDistance(0.f);
+        auto it = gPendingTeleports.find(id);
+        if (it == gPendingTeleports.end()) co_return;
+        auto pending = it->second;
+        gPendingTeleports.erase(it);
+        if (auto* player = findPlayer(id)) {
+            returnToOrigin(*player, pending);
             log().warn("Player {} teleport to {} {} failed: the target did not load", player->getRealName(), x, z);
         }
     }).launch(ll::thread::ServerThreadExecutor::getDefault());
 }
 
+/// Ends every waiting teleport, putting the players back (mod disabled).
+void cancelPendingTeleports() {
+    for (auto const& [id, pending] : gPendingTeleports) {
+        if (auto* player = findPlayer(id)) returnToOrigin(*player, pending);
+    }
+    gPendingTeleports.clear();
+}
+
 // ---- durability ---------------------------------------------------------------------------------
+
+/// The compass `damage` alone (docs/SPEC.md 2.3), without parsing the rest of the data: the sync
+/// runs often over whole inventories.
+int damageOf(ItemStack const& stack) {
+    if (!stack.mUserData || !stack.mUserData->contains(compass::kDataKey)) return 0;
+    auto const& data = stack.mUserData->at(compass::kDataKey);
+    if (!data.hold(Tag::Compound)) return 0;
+    auto const& tag = data.get<CompoundTag>();
+    if (!tag.contains("damage")) return 0;
+    auto const& damage = tag.at("damage");
+    return damage.hold(Tag::Int) ? damage.get<IntTag>().data : 0;
+}
 
 /// The Bedrock damage value the compass should show.
 int barDamageOf(ItemStack const& stack) {
-    return core::durabilityBarDamage(compass::readData(stack).damage, compass::compassDurability(), kBarMaxDamage);
+    return core::durabilityBarDamage(damageOf(stack), compass::compassDurability(), kBarMaxDamage);
 }
 
 /// `stack` with the right damage value, or nullopt when it already has it.
@@ -367,35 +407,54 @@ public:
         });
         // A click on a block: NC's use is reached unless the block itself reacts (sneaking skips the
         // block, as in vanilla).
-        mUseOn = bus.emplaceListener<ll::event::PlayerInteractBlockEvent>([](ll::event::PlayerInteractBlockEvent& event
-                                                                          ) {
-            auto& player = event.self();
-            if (player.isClientSide() || !compass::isCompass(event.item())) return;
-            bool sneaking = player.isSneaking();
-            if (!sneaking) {
-                if (auto block = event.block(); block && block->getBlockType().isInteractiveBlock()) return;
-            }
-            handleUseEvent(player, sneaking);
-        });
-        mTick = bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](ll::event::ServerLevelTickEvent& event) {
+        mUseOn =
+            bus.emplaceListener<ll::event::PlayerInteractBlockEvent>([](ll::event::PlayerInteractBlockEvent& event) {
+                auto& player = event.self();
+                if (player.isClientSide() || !compass::isCompass(event.item())) return;
+                bool sneaking = player.isSneaking();
+                if (!sneaking) {
+                    if (auto block = event.block(); block && block->getBlockType().isInteractiveBlock()) {
+                        // The block takes this click; its air event (if any) must not open the screen.
+                        newClick(player);
+                        return;
+                    }
+                }
+                handleUseEvent(player, sneaking);
+            });
+        mTick  = bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](ll::event::ServerLevelTickEvent& event) {
             if (++mTicks % kDurabilitySyncTicks != 0) return;
             event.level().forEachPlayer([](Player& player) {
                 if (!player.isClientSide()) refreshDurability(player);
                 return true;
             });
         });
-        game::db::onWorldClosed([] {
-            gLastUseTick.clear();
-            gPendingTeleports.clear();
-            ++gWorldGeneration;
+        mLeave = bus.emplaceListener<ll::event::PlayerDisconnectEvent>([](ll::event::PlayerDisconnectEvent& event) {
+            Player& player = event.self();
+            auto    id     = idOf(player);
+            gLastUseTick.erase(id);
+            if (auto it = gPendingTeleports.find(id); it != gPendingTeleports.end()) {
+                returnToOrigin(player, it->second); // not saved at the build limit
+                gPendingTeleports.erase(it);
+            }
         });
+        static bool worldHooked = false; // world hooks can't be removed: register them once
+        if (!worldHooked) {
+            worldHooked = true;
+            game::db::onWorldClosed([] {
+                gLastUseTick.clear();
+                gPendingTeleports.clear();
+                ++gWorldGeneration;
+            });
+        }
     }
     void uninstall() {
         auto& bus = ll::event::EventBus::getInstance();
         bus.removeListener(mUse);
         bus.removeListener(mUseOn);
         bus.removeListener(mTick);
-        gPendingTeleports.clear();
+        bus.removeListener(mLeave);
+        cancelPendingTeleports();
+        gLastUseTick.clear();
         ++gWorldGeneration;
     }
 
@@ -403,6 +462,7 @@ private:
     ll::event::ListenerPtr mUse;
     ll::event::ListenerPtr mUseOn;
     ll::event::ListenerPtr mTick;
+    ll::event::ListenerPtr mLeave;
     std::uint64_t          mTicks = 0;
 };
 

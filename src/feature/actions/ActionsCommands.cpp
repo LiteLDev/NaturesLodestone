@@ -30,8 +30,13 @@ NL_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
     namespace compass = nl::feature::compass;
     cmd.overload<DamageParams>().text("damage").required("damage").execute(
         [](CommandOrigin const& origin, CommandOutput& output, DamageParams const& params) {
-            if (!nl::commands::isAdmin(origin)) return output.error("You need operator permission.");
             auto* player = nl::commands::playerOf(origin);
+            if (!nl::commands::isAdmin(origin)) {
+                return output.error(
+                    player ? nl::trFor(*player, "nl.actions.needOperator", "You need operator permission.")
+                           : nl::tr("nl.actions.needOperator", "You need operator permission.")
+                );
+            }
             if (!player) return output.error(nl::tr("nl.actions.noCompass", "Hold a Nature's Compass."));
             auto slot = compass::heldCompass(*player);
             auto data = slot ? compass::dataAt(*player, *slot) : std::nullopt;
@@ -40,13 +45,15 @@ NL_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
             compass::storeAt(*player, *slot, *data);
             nl::feature::actions::refreshDurability(*player);
             nl::log().info("Compass damage of {} set to {}", player->getRealName(), data->damage);
-            output.success(nl::trFor(
-                *player,
-                "nl.actions.damageSet",
-                "Compass damage set to {} (durability {}).",
-                data->damage,
-                compass::compassDurability()
-            ));
+            output.success(
+                nl::trFor(
+                    *player,
+                    "nl.actions.damageSet",
+                    "Compass damage set to {} (durability {}).",
+                    data->damage,
+                    compass::compassDurability()
+                )
+            );
         }
     );
 });

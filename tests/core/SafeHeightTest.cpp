@@ -84,8 +84,9 @@ TEST(SafeHeight, DurabilityBar) {
     EXPECT_EQ(durabilityBarDamage(0, 10, 10000), 0);
     EXPECT_EQ(durabilityBarDamage(3, 0, 10000), 0);
     EXPECT_EQ(durabilityBarDamage(1, 4, 10000), 2500);
-    EXPECT_EQ(durabilityBarDamage(4, 4, 10000), 10000);
-    EXPECT_EQ(durabilityBarDamage(9, 4, 10000), 10000);
+    EXPECT_EQ(durabilityBarDamage(4, 4, 10000), 9999); // broken: empty bar, never the full value
+    EXPECT_EQ(durabilityBarDamage(9, 4, 10000), 9999);
+    EXPECT_EQ(durabilityBarDamage(9999, 10000, 10000), 9999);
     EXPECT_EQ(durabilityBarDamage(1, 10000, 10000), 1);
     EXPECT_EQ(durabilityBarDamage(1, 100000, 10000), 1); // never 0 while damaged
     EXPECT_EQ(durabilityBarDamage(2, 3, 10000), 6667);

@@ -220,7 +220,8 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   y 256 fallback is clamped to the max y. Free = air, `minecraft:fire` / `minecraft:soul_fire`, a
   liquid material, or a block that can be built over. NC loads the target chunk synchronously; we
   move the player to the target column above the build height, wait (up to 20 s) until the chunk is
-  fully loaded, then probe and teleport (on timeout the player goes back). Log line:
+  fully loaded, then probe and teleport (on timeout, logout or mod disable the player goes back;
+  a player who dies or is moved away meanwhile is left alone). Log line:
   `Player <name> teleported to <x> <y> <z>`.
 
 ### 3.6 Biome catalog
@@ -248,7 +249,8 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
 - We (U4): the item has `minecraft:durability` with `max_durability` 10000 and `damage_chance`
   0..0 (vanilla use never damages it). Every 10 ticks (and on `actions::refreshDurability`) each
   compass a player carries gets the Bedrock damage round(10000 * damage / compassDurability)
-  (at least 1 while damaged, 10000 when broken, 0 without damage or with durability 0).
+  (at least 1 while damaged; 9999 when broken: an empty bar that a stray vanilla durability hit
+  can't turn into a destroyed item; 0 without damage or with durability 0).
   `damage` in the compass data stays the only truth: a vanilla repair (anvil / grindstone)
   only changes the bar, which the next sync puts back; broken-ness never reads the Bedrock damage.
 
