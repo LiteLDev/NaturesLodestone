@@ -16,6 +16,7 @@
       { "binding_name": "#hud_title_text_string" },
       {
         "binding_type": "view",
+        "binding_condition": "always",
         "source_property_name": "(((#hud_title_text_string - '§r§N§C§L') - '§r§N§C§R') = #hud_title_text_string)",
         "target_property_name": "#visible"
       }
