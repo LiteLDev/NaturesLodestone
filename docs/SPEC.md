@@ -158,41 +158,70 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
 
 - **Budget.** Each server tick, after the tick's own work: budget = 50 ms - time spent in the
   tick so far, at least 10 ms. Workers run in start order; the first one gets the whole budget
-  until it finishes, then the next. One `doWork()` = one sample column or one connection-check
-  point. Server stop / world close clears all workers (no resume; a compass left Searching stays
-  so until it is reset or searches again).
+  until it finishes, then the next. The deadline is checked before each `doWork()` (one call may
+  overshoot it). One `doWork()` = one sample column or one connection-check step. Server stop /
+  world close clears all workers silently (no resume; a compass left Searching stays so until it
+  is reset or searches again). We time the server level's tick (`Level::tick`, NC: the whole
+  server tick from `ServerTickEvent.Pre`) and run the workers right after it.
 - **Parameters.** biomeSize = 4. sampleSpace = sampleSpaceModifier * 4 (default 64 blocks).
   maxRadius = radiusModifier * 4 (default 10000 blocks). maxSamples (default 50000). If maxRadius
-  or sampleSpace is 0 the search fails immediately.
+  or sampleSpace is 0 the search fails immediately (Not Found, radius 0, 0 samples, no start log
+  line).
 - **Start position.** Search: the player's block position when the button is pressed (NC trusts
   the client's position; we use the server's). Search for Next: the player's block position.
-- **Dimension.** The player's current dimension, sampled from its biome source / generator noise
-  (no chunk loading). The dimension is not stored.
-- **Y levels.** Starting at the start y, alternating outward in steps of 64 within the build
-  height (min y + 1 .. max y): y, y+64, y-64, y+128, ... Every level is tested per x/z sample.
-  Coordinates go to quart resolution (>> 2) for the noise biome lookup. A level matches when the
-  biome id equals the searched id.
+- **Dimension.** The player's current dimension at the start, sampled from its generator's biome
+  source (`BiomeSource::_getBiome`, no chunk loading) for the whole search. The dimension is not
+  stored on the compass.
+- **Y levels.** NC `Mth.outFromOrigin(startY, minY + 1, maxY, 64)` (bounds inclusive, maxY = the
+  top block y): the start y, then alternately above and below it in steps of 64 while within the
+  bounds, e.g. 64, 128, 0, 192, 256 (overworld) and only 64 in the Nether (1 .. 127). We clamp a
+  start y outside the bounds into them (NC: no level, nothing can match; Bedrock's Nether is only
+  128 blocks high, so a player on its roof would otherwise never find anything). Every level is tested per x/z sample in
+  that order; the first match gives the candidate's y. Coordinates go to quart resolution (>> 2)
+  for the noise biome lookup (we pass the quart's lowest block position). A level matches when
+  the biome id equals the searched id.
 - **Spiral.** The first sample is the start. Then directions cycle north (-z), east (+x),
   south (+z), west (-x) with segment lengths 1, 2, 3, 4, 5, ... sample spaces. Points (in sample
   spaces): (0,0), (0,-1), (1,-1), (2,-1), (2,0), (2,1), (2,2), (1,2), ...
-- **Loop.** While not finished and radius <= maxRadius and samples <= maxSamples (radius =
-  (int) horizontal distance from the start); when the condition fails the search fails. After
-  each non-matching sample `samples`++. `search_radius` progress writes as in 2.3; `samples` is
-  written only at the end.
-- **Match, normal search** (`prev_pos` empty): success at once; the candidate (with its matching
-  y) is appended to `prev_pos`.
-- **Match, Search for Next** (`prev_pos` not empty): for each previous position: if the candidate
-  is within 2 * sampleSpace (128) it is *connected* (skip the candidate, continue the spiral).
-  Else N = (int)(distance / sampleSpace); points t = i / N for i = 1 .. N-1 on the straight line
-  previous -> candidate are tested at all y levels; consecutive non-matching points are counted
-  and once the count reaches clamp(N / 4, 1, 10) the candidate is *not connected* to that previous
-  position. If every line point passes without such a gap it is connected (skip). A candidate
-  not connected to any previous position is accepted: appended to `prev_pos`, success. Each line
-  point costs one `doWork()`.
+- **Loop.** While not finished and radius <= maxRadius and samples <= maxSamples, where radius =
+  (int) sqrt((float) horizontal distance squared) of the last sampled point from the start. The
+  check comes before the move, so one point beyond maxRadius and maxSamples + 1 samples can be
+  taken. When the condition fails the search fails with that radius and sample count. After each
+  non-matching sample, and after each Search for Next candidate found connected, `samples`++ (an
+  accepted match is not counted). `search_radius` progress: after that increment, when radius >
+  500 and radius / 500 grew, floor(radius / 500) * 500 is written to the compass (2.3).
+  `samples` is written only at the end.
+- **Match, normal search** (`prev_pos` empty): success at once; the candidate (x/z of the sample
+  with its matching y) is appended to `prev_pos`.
+- **Match, Search for Next** (`prev_pos` not empty): the previous positions are checked in order.
+  For each one (one `doWork()` to start, no lookup): d = horizontal distance; if d <= 2 *
+  sampleSpace the candidate is *connected* (skip it, continue the spiral). Else N = (int)(d /
+  sampleSpace); points t = i / N for i = 1 .. N-1 on the straight line previous -> candidate,
+  x/z = (int)(prev + delta * t) (truncated toward zero), are tested at all y levels, one point per
+  `doWork()`; a matching point resets the count of consecutive non-matching points, and once that
+  count reaches clamp(N / 4, 1, 10) (integer division) the candidate is *not connected* to that
+  previous position (go on with the next one). If every line point passes without such a gap it
+  is connected (skip). A candidate not connected to any previous position is accepted: appended
+  to `prev_pos`, success.
+- **Success / failure.** Success: the compass data as in 2.3 (`damage` + 1 unless the player has
+  infinite materials, `actions::hasInfiniteXp`). Failure: Not Found with the floored radius and
+  the samples. The worker finds the compass again by `uid` in its player's inventory (held ones
+  first) at every write; when the compass is gone (dropped, stored, on the cursor) the search goes
+  on, progress writes are skipped and the final write logs `Invalid compass after search` (a
+  warning) instead, so a dropped or stored compass stays Searching. When the player is offline at
+  the start of a tick the worker is dropped (`Search stopped` log line, no write) instead of
+  holding the budget (NC keeps it running to its end). NC drops a Search for Next worker silently (no
+  write, no log) when a skipped connected candidate exhausts the limits; we fail it like any other
+  search, so the compass never stays Searching.
 - **Stop.** Sneak-use or a new search of the same compass stops the worker: no data written.
-- **Log lines** (one per action, e2e waits for them):
-  `BiomeSearchWorker <8-hex id>: Starting search: ...`, `... Search succeeded: ...`,
-  `... Search failed: ...`, `... Search stopped: ...`.
+- **Log lines** (NC's text; `<id>` = 8 random hex digits per worker):
+  `BiomeSearchWorker <id>: Starting search: <sampleSpace> sample space, <maxSamples> max samples, <maxRadius> max radius, <n> previous locations`,
+  `BiomeSearchWorker <id>: Search succeeded: <radius> radius, <samples> samples`,
+  `BiomeSearchWorker <id>: Search failed: <radius> radius, <samples> samples`,
+  `BiomeSearchWorker <id>: Search stopped: <radius> radius, <samples> samples`.
+- **Code.** The spiral, y levels and connection check are pure logic in `src/core/Spiral.h`
+  (gtests in `tests/core/SpiralTest.cpp`); sampling, the budget and the compass writes are in
+  `src/feature/search/`.
 
 ### 3.4 Actions (server side of NC's packets)
 
@@ -234,6 +263,55 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   levels capped to 3, malformed entries skipped), else `defaultXpLevels`.
 - Globs (blacklist and XP): anchored; `*` = any run of characters, `?` = one character
   (`core::globMatch`).
+
+We (U2, `src/feature/biomes/`, `src/core/BiomeText.*`):
+
+- **Ids** are the Bedrock registry names in the `minecraft` namespace (`minecraft:plains`,
+  `minecraft:hell` for Nether Wastes, `minecraft:roofed_forest` for Dark Forest, ...), the same
+  names the biome source returns, so searches compare them directly. Order: numeric biome id.
+- **Hidden** (the Bedrock equivalent of `c:hidden_from_locator_selection`, which is empty in
+  vanilla Java, so NC's Java list holds exactly the biomes the generators produce): the
+  registry's unnamed placeholder biome, and the vanilla legacy biomes that Bedrock still registers
+  for old worlds but no current generator produces (`core::isLegacyBedrockBiome`):
+  `bamboo_jungle_hills`, `birch_forest_hills`, `birch_forest_hills_mutated`, `cold_taiga_hills`,
+  `cold_taiga_mutated`, `deep_warm_ocean`, `desert_hills`, `desert_mutated`, `extreme_hills_edge`,
+  `extreme_hills_plus_trees_mutated`, `forest_hills`, `ice_mountains`, `jungle_edge_mutated`,
+  `jungle_hills`, `jungle_mutated`, `legacy_frozen_ocean`, `mega_taiga_hills`, `mesa_plateau`,
+  `mesa_plateau_mutated`, `mesa_plateau_stone_mutated`, `mushroom_island_shore`,
+  `redwood_taiga_hills_mutated`, `roofed_forest_mutated`, `savanna_plateau_mutated`,
+  `swampland_mutated`, `taiga_hills`, `taiga_mutated`. A search for them could never succeed.
+  Add-on biomes are never hidden. The remaining vanilla list is Java's 1.21 biome list (Bedrock
+  has one End biome, `the_end`) plus Bedrock-only content.
+- **Dimensions** come from the Bedrock biome tags: `overworld` or `overworld_generation` ->
+  `minecraft:overworld`, `nether` -> `minecraft:nether`, `the_end` -> `minecraft:the_end` (order
+  Overworld, Nether, End). Bedrock's generator queries (`BiomeSource::hasBiomeById`,
+  `BiomeRegistry::getBiomesInDimension`) do not answer this reliably (measured on 1.26.51: the
+  former is false for every biome, the latter lists a handful of legacy-layer biomes). Unlike NC
+  on a Java superflat world, a flat world still lists every Overworld biome as Overworld.
+- **Tags**: Bedrock biome tags are not Java's `is_*` tags. We map them so that each vanilla biome
+  gets exactly its Java 1.21 `minecraft:is_*` tags (minus `is_overworld`), in alphabetical order
+  (Java's tag order is unspecified; this makes Deep Ocean read "Deep Ocean", not "Ocean"):
+
+  | NC tag | Bedrock tags |
+  | --- | --- |
+  | `badlands` | `mesa` |
+  | `beach` | `beach` without `stone` |
+  | `deep_ocean` | `ocean` + `deep` |
+  | `end` | `the_end` |
+  | `forest` | `forest`, `flower_forest`, `grove` or `pale_garden`, without `taiga` / `extreme_hills` |
+  | `hill` | `extreme_hills` |
+  | `jungle` | `jungle` |
+  | `mountain` | `mountains` without `grove` |
+  | `nether` | `nether` |
+  | `ocean` | `ocean` |
+  | `river` | `river` |
+  | `savanna` | `savanna` |
+  | `taiga` | `taiga` |
+
+  Add-on biomes that use the vanilla tags get the same tags.
+- Temperature and downfall are the biome's `mTemperature` / `mDownfall`.
+- The catalog is rebuilt lazily on first use per world (`game::db::onWorldReady`) and after
+  `/naturescompass reload`, logging `Biome catalog: <N> searchable biomes (<H> hidden, <B> blacklisted)`.
 
 ### 3.7 Durability
 
@@ -295,6 +373,17 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   capitalised, goes into a sorted set. The set joined with ", ", or "None" when empty.
 - **Source**: "Minecraft" for the `minecraft` namespace, else the add-on / mod name or the raw
   namespace.
+
+We: biome names are `biome.minecraft.<bedrock name>` in `assets/lang/<locale>/biomes.json`:
+Java's current English and official Chinese names for every Bedrock biome with a Java equivalent
+(`hell` "Nether Wastes" / "下界荒地", `roofed_forest` "Dark Forest" / "黑森林", `mesa_plateau_stone`
+"Wooded Badlands" / "疏林恶地", ...), the pre-1.18 Java names for legacy biomes ("Desert Hills",
+"Gravelly Mountains+", ...) and names in the same style for Bedrock-only biomes. An id without a
+translation shows its path capitalised ("my_addon:crystal_wastes" -> "Crystal Wastes").
+`biome.minecraft.badlands` ("Badlands") also exists because it is an NC tag name. Dimension names
+are `dimension.minecraft.{overworld,nether,the_end}` (Java has no such keys, so NC always shows the
+English fallback; we translate them). Rainfall / Temperature values use `core::javaFloatToString` (`rainfallText` / `temperatureText` in `Biomes.h`)
+(Java `Float.toString`: `0.8`, `2.0`, `-0.5`, `1.0E-4`). Add-on sources show the raw namespace.
 
 ### 4.2 Select Biome
 

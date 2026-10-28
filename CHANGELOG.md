@@ -16,5 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Search and Search for Next take the configured XP levels (not in creative) and play the click sound; a broken compass can't search.
 - Teleport to a found biome (operators or cheats, `allowTeleport`) at a safe height, also into chunks that are not loaded yet.
 - The durability bar of the compass when `compassDurability` is set.
+- The biome catalog: every biome the world can generate, with its dimensions, Nature's Compass tags, source, temperature, rainfall and XP cost; the biome blacklist and per-biome XP costs; English and Chinese names for every biome and dimension.
+- Biome searches as in Nature's Compass: a square spiral over the world generator's biomes (no chunk loading) in the Overworld, the Nether and the End, within a per-tick time budget, with radius progress, Not Found limits and "Search for Next" skipping biome patches connected to earlier finds. One search per compass.
 
 [Unreleased]: https://github.com/LiteLDev/NaturesLodestone/commits/main
