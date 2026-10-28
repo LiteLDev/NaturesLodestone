@@ -16,7 +16,7 @@ namespace nl::feature::biomes {
 struct BiomeInfo {
     std::string id; ///< "minecraft:plains"
     /// Dimensions whose generator can produce the biome, as ids ("minecraft:overworld",
-    /// "minecraft:nether", "minecraft:the_end"); may be empty.
+    /// "minecraft:nether", "minecraft:the_end"), from the Bedrock biome tags (SPEC 3.6); may be empty.
     std::vector<std::string> dimensions;
     /// Raw NC tag names (the `is_*` tags minus `is_overworld`, `is_` stripped, cut at '/'), e.g.
     /// {"forest"}. Display text: `tagsText`.
@@ -55,5 +55,11 @@ struct BiomeInfo {
 
 /// The "Source:" value of a GUI row ("Minecraft" for vanilla biomes).
 [[nodiscard]] std::string sourceText(BiomeInfo const& biome, std::string_view locale = {});
+
+/// The "Temperature:" value of a GUI row (Java `Float.toString`: "0.8", "2.0", "-0.5").
+[[nodiscard]] std::string temperatureText(BiomeInfo const& biome);
+
+/// The "Rainfall:" value of a GUI row (Java `Float.toString` of the downfall).
+[[nodiscard]] std::string rainfallText(BiomeInfo const& biome);
 
 } // namespace nl::feature::biomes

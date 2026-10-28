@@ -222,6 +222,55 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
 - Globs (blacklist and XP): anchored; `*` = any run of characters, `?` = one character
   (`core::globMatch`).
 
+We (U2, `src/feature/biomes/`, `src/core/BiomeText.*`):
+
+- **Ids** are the Bedrock registry names in the `minecraft` namespace (`minecraft:plains`,
+  `minecraft:hell` for Nether Wastes, `minecraft:roofed_forest` for Dark Forest, ...), the same
+  names the biome source returns, so searches compare them directly. Order: numeric biome id.
+- **Hidden** (the Bedrock equivalent of `c:hidden_from_locator_selection`, which is empty in
+  vanilla Java, so NC's Java list holds exactly the biomes the generators produce): the
+  registry's unnamed placeholder biome, and the vanilla legacy biomes that Bedrock still registers
+  for old worlds but no current generator produces (`core::isLegacyBedrockBiome`):
+  `bamboo_jungle_hills`, `birch_forest_hills`, `birch_forest_hills_mutated`, `cold_taiga_hills`,
+  `cold_taiga_mutated`, `deep_warm_ocean`, `desert_hills`, `desert_mutated`, `extreme_hills_edge`,
+  `extreme_hills_plus_trees_mutated`, `forest_hills`, `ice_mountains`, `jungle_edge_mutated`,
+  `jungle_hills`, `jungle_mutated`, `legacy_frozen_ocean`, `mega_taiga_hills`, `mesa_plateau`,
+  `mesa_plateau_mutated`, `mesa_plateau_stone_mutated`, `mushroom_island_shore`,
+  `redwood_taiga_hills_mutated`, `roofed_forest_mutated`, `savanna_plateau_mutated`,
+  `swampland_mutated`, `taiga_hills`, `taiga_mutated`. A search for them could never succeed.
+  Add-on biomes are never hidden. The remaining vanilla list is Java's 1.21 biome list (Bedrock
+  has one End biome, `the_end`) plus Bedrock-only content.
+- **Dimensions** come from the Bedrock biome tags: `overworld` or `overworld_generation` ->
+  `minecraft:overworld`, `nether` -> `minecraft:nether`, `the_end` -> `minecraft:the_end` (order
+  Overworld, Nether, End). Bedrock's generator queries (`BiomeSource::hasBiomeById`,
+  `BiomeRegistry::getBiomesInDimension`) do not answer this reliably (measured on 1.26.51: the
+  former is false for every biome, the latter lists a handful of legacy-layer biomes). Unlike NC
+  on a Java superflat world, a flat world still lists every Overworld biome as Overworld.
+- **Tags**: Bedrock biome tags are not Java's `is_*` tags. We map them so that each vanilla biome
+  gets exactly its Java 1.21 `minecraft:is_*` tags (minus `is_overworld`), in alphabetical order
+  (Java's tag order is unspecified; this makes Deep Ocean read "Deep Ocean", not "Ocean"):
+
+  | NC tag | Bedrock tags |
+  | --- | --- |
+  | `badlands` | `mesa` |
+  | `beach` | `beach` without `stone` |
+  | `deep_ocean` | `ocean` + `deep` |
+  | `end` | `the_end` |
+  | `forest` | `forest`, `flower_forest`, `grove` or `pale_garden`, without `taiga` / `extreme_hills` |
+  | `hill` | `extreme_hills` |
+  | `jungle` | `jungle` |
+  | `mountain` | `mountains` without `grove` |
+  | `nether` | `nether` |
+  | `ocean` | `ocean` |
+  | `river` | `river` |
+  | `savanna` | `savanna` |
+  | `taiga` | `taiga` |
+
+  Add-on biomes that use the vanilla tags get the same tags.
+- Temperature and downfall are the biome's `mTemperature` / `mDownfall`.
+- The catalog is rebuilt lazily on first use per world (`game::db::onWorldReady`) and after
+  `/naturescompass reload`, logging `Biome catalog: <N> searchable biomes (<H> hidden, <B> blacklisted)`.
+
 ### 3.7 Durability
 
 - `compassDurability` 0 (default): no durability, no bar, never broken.
@@ -275,6 +324,17 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   capitalised, goes into a sorted set. The set joined with ", ", or "None" when empty.
 - **Source**: "Minecraft" for the `minecraft` namespace, else the add-on / mod name or the raw
   namespace.
+
+We: biome names are `biome.minecraft.<bedrock name>` in `assets/lang/<locale>/biomes.json`:
+Java's current English and official Chinese names for every Bedrock biome with a Java equivalent
+(`hell` "Nether Wastes" / "下界荒地", `roofed_forest` "Dark Forest" / "黑森林", `mesa_plateau_stone`
+"Wooded Badlands" / "疏林恶地", ...), the pre-1.18 Java names for legacy biomes ("Desert Hills",
+"Gravelly Mountains+", ...) and names in the same style for Bedrock-only biomes. An id without a
+translation shows its path capitalised ("my_addon:crystal_wastes" -> "Crystal Wastes").
+`biome.minecraft.badlands` ("Badlands") also exists because it is an NC tag name. Dimension names
+are `dimension.minecraft.{overworld,nether,the_end}` (Java has no such keys, so NC always shows the
+English fallback; we translate them). Rainfall / Temperature values use `core::javaFloatToString` (`rainfallText` / `temperatureText` in `Biomes.h`)
+(Java `Float.toString`: `0.8`, `2.0`, `-0.5`, `1.0E-4`). Add-on sources show the raw namespace.
 
 ### 4.2 Select Biome
 
