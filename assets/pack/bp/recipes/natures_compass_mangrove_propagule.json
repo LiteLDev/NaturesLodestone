@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "natureslodestone:natures_compass_mangrove_propagule"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "SLS",
+      "LCL",
+      "SLS"
+    ],
+    "key": {
+      "S": {
+        "item": "minecraft:mangrove_propagule"
+      },
+      "L": {
+        "tag": "minecraft:logs"
+      },
+      "C": {
+        "item": "minecraft:compass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:compass"
+      }
+    ],
+    "result": {
+      "item": "natureslodestone:naturescompass"
+    }
+  }
+}
