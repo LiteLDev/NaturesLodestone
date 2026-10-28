@@ -411,6 +411,38 @@ NC's active rules; "Cancel" (`string.naturescompass.cancel`). The data-driven `l
 updates in place (filter, sort, selection); the classic-form fallback rebuilds the form instead.
 U5 owns the details; it reads only the contracts (`Biomes.h`, `Actions.h`, `CompassData.h`).
 
+Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
+
+- **Model.** One `SelectBiomeModel` per open screen: rows (catalog order), filter, sort mode,
+  selection. Changing the filter or the sort rebuilds the list like NC's `refreshList`: the
+  selection is dropped and the list starts at the top. Rows the player can't afford stay listed
+  (greyed) but can't be selected. A click on the selected row is NC's double click (Search). The
+  data the screen shows (catalog, XP level, compass state, `canTeleport`) is read once when it
+  opens, like NC's sync packet.
+- **Data-driven form** (default, `ll::ui::CustomForm`, rendered by the client's Ore UI): a text
+  field "Search" (the client reports every edit, so the list re-filters live as in NC), then
+  Search, Search for Next, Sort By, Teleport, Cancel, a divider and one button + one label per
+  biome. Ore UI shows neither formatting codes nor line breaks in button labels, so a row is a
+  button with line 1 (`<name>`, `[<levels>]` when the cost is > 0, `> ... <` around the selected
+  row) and a label below it with lines 2-4 (grey). Unaffordable rows are disabled buttons
+  (greyed by the client). Hidden/disabled states are observables, so nothing is re-sent. The
+  JSON-UI skin cannot reach Ore UI screens.
+- **Classic form** (fallback when the data-driven form can't be shown; `/naturescompass gui
+  classic|ddui|auto` switches it for testing): an `ll::form::SimpleForm` re-sent after every
+  click. Its title and buttons carry invisible formatting-code markers
+  (`src/feature/gui/GuiMarkers.h`); the RP skin (`ui/nl_gui_screen.json` + the `ui/server_form.json`
+  modification, scoped by the title marker) draws NC's layout from them: title at the top left,
+  Search / Search for Next / Sort By (10 px lower under Next) in the left column, Teleport at the
+  top right, Cancel at the bottom left, the search box at (130, 10) and the scrolling list of
+  4-line rows (with the enchanting table's level icons `textures/ui/dust_(un)selectable_N`) on
+  the right, with NC's fills (0x7F / 0xB8 hovered or selected / 0x2B inactive or unaffordable).
+  The search box opens a one-field input form; the filter applies on submit. Without the RP the
+  classic form is a plain vanilla button list (rows show their first lines).
+- Log lines (e2e): `Select Biome opened for <player> (<n> biomes, <data-driven|classic> form,
+  selected '<id>')`, `Select Biome: <player> filter '<text>' (<n> listed)`, `... sort by <Mode>`,
+  `... selected <id>`, `... chose <Search|Search for Next|Teleport> (<id>)`, `... chose Cancel`,
+  `... closed the screen`.
+
 ### 4.3 HUD
 
 - Drawn above the boss bar. Uses the compass in the main hand, then the off hand. Hidden when the

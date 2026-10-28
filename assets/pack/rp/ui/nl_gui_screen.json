@@ -1,0 +1,434 @@
+{
+  "namespace": "nl_gui",
+
+  "//": "NaturesLodestone: Nature's Compass' Select Biome screen drawn over the classic server form. Only forms whose title carries the marker §n§c§g§u§i§r use it (src/feature/gui/GuiMarkers.h); every other form keeps the vanilla look. Each region lists the form's buttons again and shows only those with its marker.",
+
+  "screen": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "layer": 10,
+    "bindings": [
+      { "binding_name": "#title_text" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#title_text - '§n§c§g§u§i§r') = #title_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "background": {
+          "type": "image",
+          "texture": "textures/ui/Black",
+          "alpha": 0.75,
+          "size": ["100%", "100%"],
+          "layer": 0
+        }
+      },
+      {
+        "title": {
+          "type": "label",
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [10, 11],
+          "size": [110, 10],
+          "text_alignment": "center",
+          "color": [1.0, 1.0, 1.0],
+          "shadow": true,
+          "layer": 5,
+          "text": "#title_text",
+          "bindings": [{ "binding_name": "#title_text" }]
+        }
+      },
+      {
+        "search_box@nl_gui.region": {
+          "offset": [130, 10],
+          "size": [140, 20],
+          "factory": { "name": "buttons", "control_ids": { "button": "@nl_gui.search_box_item" } }
+        }
+      },
+      {
+        "left_column@nl_gui.region": {
+          "offset": [10, 40],
+          "size": [110, "100%c"],
+          "factory": { "name": "buttons", "control_ids": { "button": "@nl_gui.left_item" } }
+        }
+      },
+      {
+        "teleport@nl_gui.region": {
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "offset": [-10, 10],
+          "size": [110, "100%c"],
+          "factory": { "name": "buttons", "control_ids": { "button": "@nl_gui.teleport_item" } }
+        }
+      },
+      {
+        "cancel@nl_gui.region": {
+          "anchor_from": "bottom_left",
+          "anchor_to": "bottom_left",
+          "offset": [10, -10],
+          "size": [110, "100%c"],
+          "factory": { "name": "buttons", "control_ids": { "button": "@nl_gui.cancel_item" } }
+        }
+      },
+      {
+        "list@common.scrolling_panel": {
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [130, 40],
+          "size": ["100% - 140px", "100% - 50px"],
+          "layer": 2,
+          "$show_background": false,
+          "$scrolling_content": "nl_gui.list_content",
+          "$scroll_size": [6, "100%"],
+          "$scrolling_pane_size": ["100%", "100%"],
+          "$scroll_bar_left_padding_size": [2, 0],
+          "$scroll_bar_right_padding_size": [0, 0]
+        }
+      }
+    ]
+  },
+
+  "region": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "layer": 2,
+    "collection_name": "form_buttons",
+    "bindings": [
+      { "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }
+    ]
+  },
+
+  "list_content@nl_gui.region": {
+    "size": ["100% - 8px", "100%c"],
+    "factory": { "name": "buttons", "control_ids": { "button": "@nl_gui.row_item" } }
+  },
+
+  "fill": {
+    "type": "image",
+    "texture": "textures/ui/Black",
+    "size": ["100%", "100%"],
+    "layer": 1,
+    "$fill_alpha|default": 0.5,
+    "alpha": "$fill_alpha"
+  },
+
+  "button_text": {
+    "type": "label",
+    "layer": 3,
+    "size": ["100% - 4px", 10],
+    "text_alignment": "center",
+    "color": [1.0, 1.0, 1.0],
+    "shadow": true,
+    "text": "#form_button_text",
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }
+    ]
+  },
+
+  "//flat_button": "NC's textureless button: 0x7F000000, hovered 0xB8000000, inactive 0x2B000000 (markers 2 and 4).",
+  "flat_button@common.button": {
+    "$pressed_button_name": "button.form_button_click",
+    "size": ["100%", 20],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "sound_volume": 1.0,
+    "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+    "controls": [
+      {
+        "default": {
+          "type": "panel",
+          "controls": [
+            { "on@nl_gui.fill": { "$fill_alpha": 0.5, "bindings": "$on_bindings" } },
+            { "off@nl_gui.fill": { "$fill_alpha": 0.17, "bindings": "$off_bindings" } }
+          ]
+        }
+      },
+      {
+        "hover": {
+          "type": "panel",
+          "controls": [
+            { "on@nl_gui.fill": { "$fill_alpha": 0.72, "bindings": "$on_bindings" } },
+            { "off@nl_gui.fill": { "$fill_alpha": 0.17, "bindings": "$off_bindings" } }
+          ]
+        }
+      },
+      {
+        "pressed": {
+          "type": "panel",
+          "controls": [
+            { "on@nl_gui.fill": { "$fill_alpha": 0.72, "bindings": "$on_bindings" } },
+            { "off@nl_gui.fill": { "$fill_alpha": 0.17, "bindings": "$off_bindings" } }
+          ]
+        }
+      },
+      { "text@nl_gui.button_text": {} }
+    ],
+    "$on_bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(((#form_button_text - '§n§c§2§r') = #form_button_text) and ((#form_button_text - '§n§c§4§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "$off_bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§n§c§2§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§4§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "//left_item": "Search / Search for Next / Sort By: 20 px buttons 5 px apart; the padded Sort By (Next visible) starts 10 px lower (NC y 40, 65, 100).",
+  "left_item": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100%", "100%c"],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§n§c§1§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§2§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§a§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "pad": {
+          "type": "panel",
+          "size": ["100%", 10],
+          "bindings": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§n§c§a§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      { "button@nl_gui.flat_button": {} },
+      { "gap": { "type": "panel", "size": ["100%", 5] } }
+    ]
+  },
+
+  "teleport_item": {
+    "type": "panel",
+    "size": ["100%", 20],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§n§c§3§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§4§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [{ "button@nl_gui.flat_button": {} }]
+  },
+
+  "cancel_item": {
+    "type": "panel",
+    "size": ["100%", 20],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§n§c§9§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [{ "button@nl_gui.flat_button": {} }]
+  },
+
+  "//search_box_item": "NC's search field: black box, grey 1 px border (white on hover), left-aligned text; clicking it opens the filter input.",
+  "search_box_item": {
+    "type": "panel",
+    "size": ["100%", 20],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§n§c§5§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": ["100%", "100%"],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@nl_gui.text_box_frame": { "$border_color": [0.627, 0.627, 0.627] } },
+            { "hover@nl_gui.text_box_frame": { "$border_color": [1.0, 1.0, 1.0] } },
+            { "pressed@nl_gui.text_box_frame": { "$border_color": [1.0, 1.0, 1.0] } },
+            {
+              "text@nl_gui.button_text": {
+                "anchor_from": "left_middle",
+                "anchor_to": "left_middle",
+                "offset": [4, 0],
+                "size": ["100% - 8px", 10],
+                "text_alignment": "left"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  "text_box_frame": {
+    "type": "panel",
+    "controls": [
+      {
+        "border": {
+          "type": "image",
+          "texture": "textures/ui/White",
+          "color": "$border_color",
+          "size": ["100%", "100%"],
+          "layer": 1
+        }
+      },
+      {
+        "inside": {
+          "type": "image",
+          "texture": "textures/ui/Black",
+          "size": ["100% - 2px", "100% - 2px"],
+          "layer": 2
+        }
+      }
+    ]
+  },
+
+  "//row_item": "A biome row (every button without a control marker): 4 lines at +3, +14, +25, +36 px, the level icon at the right; normal 0x7F, selected 0xB8, can't afford 0x2B.",
+  "row_item": {
+    "type": "panel",
+    "size": ["100%", 50],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "((#form_button_text - '§n§c§1§r' - '§n§c§2§r' - '§n§c§a§r' - '§n§c§3§r' - '§n§c§4§r' - '§n§c§5§r' - '§n§c§9§r') = #form_button_text)",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "size": ["100%", 48],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            {
+              "default": {
+                "type": "panel",
+                "controls": [
+                  { "normal@nl_gui.fill": { "$fill_alpha": 0.5, "bindings": "$row_normal" } },
+                  { "selected@nl_gui.fill": { "$fill_alpha": 0.72, "bindings": "$row_selected" } },
+                  { "locked@nl_gui.fill": { "$fill_alpha": 0.17, "bindings": "$row_locked" } }
+                ]
+              }
+            },
+            {
+              "hover": {
+                "type": "panel",
+                "controls": [
+                  { "open@nl_gui.fill": { "$fill_alpha": 0.72, "bindings": "$row_open" } },
+                  { "locked@nl_gui.fill": { "$fill_alpha": 0.17, "bindings": "$row_locked" } }
+                ]
+              }
+            },
+            {
+              "pressed": {
+                "type": "panel",
+                "controls": [
+                  { "open@nl_gui.fill": { "$fill_alpha": 0.72, "bindings": "$row_open" } },
+                  { "locked@nl_gui.fill": { "$fill_alpha": 0.17, "bindings": "$row_locked" } }
+                ]
+              }
+            },
+            {
+              "text@nl_gui.button_text": {
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [5, 3],
+                "size": ["100% - 45px", "default"],
+                "text_alignment": "left",
+                "font_scale_factor": 1.0
+              }
+            },
+            {
+              "level_icon": {
+                "type": "image",
+                "layer": 4,
+                "anchor_from": "right_middle",
+                "anchor_to": "right_middle",
+                "offset": [-15, 0],
+                "size": [20, 20],
+                "bindings": [
+                  {
+                    "binding_name": "#form_button_texture",
+                    "binding_name_override": "#texture",
+                    "binding_type": "collection",
+                    "binding_collection_name": "form_buttons"
+                  },
+                  {
+                    "binding_name": "#form_button_texture_file_system",
+                    "binding_name_override": "#texture_file_system",
+                    "binding_type": "collection",
+                    "binding_collection_name": "form_buttons"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#texture = '') or (#texture = 'loading')))",
+                    "target_property_name": "#visible"
+                  }
+                ]
+              }
+            }
+          ],
+          "$row_normal": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(((#form_button_text - '§n§c§7§r') = #form_button_text) and ((#form_button_text - '§n§c§8§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "$row_selected": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§n§c§8§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "$row_locked": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§n§c§7§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "$row_open": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§n§c§7§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
