@@ -16,6 +16,7 @@
 #include "feature/compass/Gui.h"
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -121,7 +122,13 @@ void endSession(SessionPtr const& session) {
 }
 
 void logFilter(Session const& s) {
-    log().info("Select Biome: {} filter '{}' ({} listed)", s.playerName, s.model.filter(), s.model.listed().size());
+    auto const& f = s.model.filter();
+    log().info(
+        "Select Biome: {} filter '{}' ({} listed)",
+        s.playerName,
+        f.size() > 64 ? f.substr(0, 64) + "..." : f,
+        s.model.listed().size()
+    );
 }
 
 void logSort(Session const& s) {
@@ -135,17 +142,15 @@ void logSelected(Session const& s) {
 // ---- data-driven form: drawing ---------------------------------------------------------------
 
 /// The row button: the name (line 1), the XP cost, and the selection mark.
-std::string dduiRowButton(Session const& s, core::BiomeRow const& row) {
-    auto        lines = rowLines(row, s.model.sortMode(), s.locale);
-    std::string out   = lines[0];
+std::string dduiRowButton(Session const& s, core::BiomeRow const& row, std::array<std::string, 4> const& lines) {
+    std::string out = lines[0];
     if (row.xpLevels > 0) out += " [" + std::to_string(row.xpLevels) + "]";
     if (s.model.isSelected(row)) out = "> " + out + " <";
     return out;
 }
 
 /// The label under the row button: lines 2-4.
-std::string dduiRowDetails(Session const& s, core::BiomeRow const& row) {
-    auto lines = rowLines(row, s.model.sortMode(), s.locale);
+std::string dduiRowDetails(std::array<std::string, 4> const& lines) {
     return "§7" + lines[1] + "\n" + lines[2] + "\n" + lines[3];
 }
 
@@ -158,8 +163,9 @@ void refreshDdui(Session& s) {
     for (std::size_t i = 0; i < s.slots.size(); ++i) {
         auto& slot = s.slots[i];
         if (auto const* row = s.model.listedRow(i)) {
-            slot.label.setData(dduiRowButton(s, *row));
-            slot.details.setData(dduiRowDetails(s, *row));
+            auto lines = rowLines(*row, s.model.sortMode(), s.locale);
+            slot.label.setData(dduiRowButton(s, *row, lines));
+            slot.details.setData(dduiRowDetails(lines));
             slot.disabled.setData(!row->affordable);
             slot.visible.setData(true);
         } else {
@@ -178,8 +184,9 @@ void redraw(Player& player, SessionPtr const& s) {
 }
 
 void closeScreen(SessionPtr const& s) {
-    if (s->dataDriven && s->form && !s->closed) (void)s->form->close();
-    endSession(s);
+    bool wasOpen = !s->closed;
+    endSession(s); // marks it closed first: close() may run the show callback right away
+    if (wasOpen && s->dataDriven && s->form) (void)s->form->close();
 }
 
 // ---- handlers shared by both forms (and the selftest hooks) ----------------------------------
@@ -358,7 +365,7 @@ std::string levelIcon(core::BiomeRow const& row) {
 
 void showClassicFilter(Player& player, SessionPtr const& s) {
     std::weak_ptr<Session> weak = s;
-    ll::form::CustomForm form(std::string(kMarkTitleFilter) + tx(*s, "string.naturescompass.selectBiome", "Select Biome"));
+    ll::form::CustomForm form(tx(*s, "string.naturescompass.selectBiome", "Select Biome"));
     form.appendInput("filter", "", tx(*s, "string.naturescompass.search", "Search"), s->model.filter());
     form.setSubmitButton(tx(*s, "string.naturescompass.search", "Search"));
     form.sendTo(player, [weak](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
@@ -391,7 +398,10 @@ void showClassic(Player& player, SessionPtr const& s) {
 
     // The search box, then NC's buttons; the skin moves each one to its place.
     std::string box{kMarkSearchBox};
-    box += s->model.filter().empty() ? "§7" + tx(*s, "string.naturescompass.search", "Search") : "§f" + s->model.filter();
+    // Shown without '§', so typed text can't fake the skin's markers.
+    std::string shown = s->model.filter();
+    for (auto pos = shown.find("§"); pos != std::string::npos; pos = shown.find("§")) shown.erase(pos, 2);
+    box += s->model.filter().empty() ? "§7" + tx(*s, "string.naturescompass.search", "Search") : "§f" + shown;
     add(box, {}, [](Player& p, SessionPtr const& s) { showClassicFilter(p, s); });
     add(control(b.searchActive, kMarkButton, kMarkButtonOff, tx(*s, "string.naturescompass.search", "Search")),
         {},
@@ -442,8 +452,9 @@ void closeExisting(Player const& player) {
     if (it == gSessions.end()) return;
     auto old = it->second;
     gSessions.erase(it);
-    if (old->dataDriven && old->form && !old->closed) (void)old->form->close();
-    old->closed = true;
+    bool wasOpen = !old->closed;
+    old->closed  = true;
+    if (wasOpen && old->dataDriven && old->form) (void)old->form->close();
 }
 
 } // namespace
@@ -542,8 +553,13 @@ public:
         game::db::onWorldClosed([] { gSessions.clear(); });
     }
     void uninstall() {
-        for (auto& [_, s] : gSessions) s->closed = true;
+        auto sessions = std::move(gSessions);
         gSessions.clear();
+        for (auto& [_, s] : sessions) {
+            bool wasOpen = !s->closed;
+            s->closed    = true;
+            if (wasOpen && s->dataDriven && s->form) (void)s->form->close(); // no callbacks into an unloaded mod
+        }
     }
 
 private:

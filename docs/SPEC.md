@@ -400,7 +400,7 @@ NC's only screen (there is no info screen in 3.3.1). NC layout (GUI pixels):
   ascending.
 - Filter (search box), recomputed on every change, case-insensitive "contains": `$term` matches
   the tags text, `@term` matches the source, anything else the display name.
-- On open the found biome (state Found) is pre-selected; the filter is empty and the list
+- On open the found biome (state Found) is pre-selected (we: only when affordable); the filter is empty and the list
   scrolled to the top.
 
 **Our form** (deviation 1.3.1): title "Select Biome"; a text field (filter, same `$` / `@`

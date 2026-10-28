@@ -9,7 +9,6 @@
 namespace nl::feature::gui {
 
 inline constexpr std::string_view kMarkTitle       = "§n§c§g§u§i§r"; ///< the Select Biome form
-inline constexpr std::string_view kMarkTitleFilter = "§n§c§g§u§f§r"; ///< the filter input form
 inline constexpr std::string_view kMarkButton      = "§n§c§1§r";     ///< left column, active
 inline constexpr std::string_view kMarkButtonOff   = "§n§c§2§r";     ///< left column, inactive
 inline constexpr std::string_view kMarkSortPadded  = "§n§c§a§r";     ///< left column, 10 px lower (Sort By under Next)

@@ -164,7 +164,10 @@ SelectBiomeModel::SelectBiomeModel(std::vector<BiomeRow> rows, CompassView compa
 : mRows(std::move(rows)),
   mCompass(std::move(compass)) {
     rebuild();
-    if (mCompass.found) select(mCompass.foundBiome);
+    if (!mCompass.found) return;
+    for (auto const& row : mRows) {
+        if (row.id == mCompass.foundBiome && row.affordable) select(row.id); // unaffordable rows can't be selected
+    }
 }
 
 BiomeRow const* SelectBiomeModel::listedRow(std::size_t position) const {

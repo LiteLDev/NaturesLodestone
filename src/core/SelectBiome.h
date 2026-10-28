@@ -98,7 +98,7 @@ public:
         Search,   ///< a second click on the selected row (NC double click): search for it
     };
 
-    /// Builds the list (sorted by Name, no filter) and pre-selects the Found biome.
+    /// Builds the list (sorted by Name, no filter) and pre-selects the Found biome (if affordable).
     SelectBiomeModel(std::vector<BiomeRow> rows, CompassView compass);
 
     [[nodiscard]] std::vector<BiomeRow> const& rows() const { return mRows; }

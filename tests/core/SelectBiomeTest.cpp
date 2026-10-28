@@ -188,6 +188,8 @@ TEST(SelectBiome, ModelPreselectsFound) {
     EXPECT_FALSE(none.selected());
     SelectBiomeModel unknown(sample(), CompassView{true, "minecraft:nope"});
     EXPECT_FALSE(unknown.selected());
+    SelectBiomeModel locked(sample(), CompassView{true, "addon:forest_hills"});
+    EXPECT_FALSE(locked.selected()); // can't afford it: not pre-selected
 }
 
 TEST(SelectBiome, ModelClickSelectsThenSearches) {
