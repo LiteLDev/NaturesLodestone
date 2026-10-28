@@ -245,8 +245,25 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   dropped) or the holder is at ~0 distance from the target.
 - Pointing: atan2(dz, dx) / 2π; for the local player the wobbler eases toward 0.5 - (yaw / 360 -
   0.25); for other holders 0.5 - (yaw / 360 - 0.25 - angle), no wobble.
-- We: the client build animates through an item icon hook (`ComponentItem::$getIconInfo`) with
-  32 original frames (`tools/textures/compass.ps1`). Vanilla clients see the static icon.
+- We: the client build animates the needle in `src/client/needle/`: our item's
+  `getAnimationFrameFor(holder, asItemEntity, stack, ...)` returns the needle frame (angle math in
+  `core/CompassAngle.h`; installed as a private vtable copy on our Item object, because the game's
+  function body is identical-code-folded with unrelated functions and can't be detoured) and a
+  detour of `ComponentItem::$getIconInfo(stack, frame, ...)` returns entry `1 + frame` of the
+  texture key `naturescompass`. The key is a texture array
+  (`item_texture.d/needle.json`): entry 0 is the plain icon (needle up, what vanilla clients see),
+  entries 1..32 are the frames `naturescompass_00` .. `_31` (original art, `tools/textures/compass.ps1`).
+- The needle state (local-player wobble, spin wobble) is shared by every Nature's Compass, like
+  NC's single property function; the wobble advances once per client game tick.
+- Holders: the local player (wobble), other players and mobs (no wobble) and, with no living
+  holder (dropped item, item frame: `asItemEntity` or no holder), the random spin with seed 0.
+  The seed of a holder is its runtime id. The spawn target and its dimension check are the vanilla
+  compass's own (`CompassSpriteCalculator::pointTowardsSpawnPoint` / `isInOverworldDimension`).
+- The client reads `compass_state`, `found_x` and `found_z` from the stack's user data as synced to
+  it, in local worlds and on a BDS.
+- Debug command (op): `/naturescompass needle found <x> <z>` marks the held compass Found at x/z;
+  client build: `/naturescompass needle frame` logs `needle: frame <n> (yaw <y>)` for the local
+  player's held compass.
 
 ### 3.9 Edge cases
 
