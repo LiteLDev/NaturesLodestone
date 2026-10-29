@@ -96,7 +96,7 @@ Settings live in `config/*.json` inside the mod folder (`plugins/NaturesLodeston
 
 NaturesLodestone matches Nature's Compass 3.3.1 everywhere except where Bedrock forces a difference. The full list is in [docs/SPEC.md](docs/SPEC.md) (sections 1.3 and 8).
 
-- **Select Biome is a form.** The server sends it, so vanilla players can use it too. It has the same contents, sorting, filter, selection rules and buttons. It does not have NC's exact pixel layout.
+- **Select Biome is a form.** The server sends it, so vanilla players can use it too. With the resource pack (single-player, and servers with `requireResourcePack`) it is drawn in NC's layout. The search box opens a small input and filters when you confirm it, not on every key. Players without the pack get a plain form with the same contents.
 - **Vanilla players on a server.** The HUD is sent as a title that the resource pack draws in the same place. It can't hide itself while the chat is open, and it can replace a normal title that is on screen when the HUD changes. The needle is a static icon.
 - **One search per compass.** In NC, one player's search cancels another's.
 - **Saplings.** All four saplings in the recipe must be of the same kind.

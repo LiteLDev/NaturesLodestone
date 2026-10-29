@@ -38,9 +38,14 @@ function Save-Burst([string]$Clip, [int]$Mark, [string]$UntilPattern, [int]$Max 
     Write-Step "clip '$Clip': $n frames"
 }
 
-# Data-driven Select Biome form, 1600x900 client area (out/gui/ddui-open.png of the gui scenario):
-# the search field, then Search, Search for Next, Sort By, Teleport, Cancel, then the rows.
-$ui = @{ Field = 0.285; Search = 0.389; Next = 0.472; Sort = 0.555; Teleport = 0.639; Cancel = 0.722; FirstRow = 0.838 }
+# Select Biome in NC's layout (the classic form with the RP skin; out/gui/classic-*.png of the gui
+# scenario), 1600x900 client area, as [x, y] fractions: the search box (opens the filter input),
+# the left column (Search, Search for Next, Sort By 10 px lower), Teleport at the top right, the
+# first list row; the filter input's Search button.
+$ui = @{
+    Box = @(0.375, 0.065); Search = @(0.121, 0.165); Next = @(0.121, 0.249); Sort = @(0.121, 0.365)
+    Teleport = @(0.879, 0.065); FirstRow = @(0.6, 0.208); FilterSubmit = @(0.5, 0.448)
+}
 
 function Open-SelectBiome([string]$Name) {
     $m = Get-LogMark
@@ -51,9 +56,9 @@ function Open-SelectBiome([string]$Name) {
     return $line
 }
 
-function Invoke-FormButton([string]$What, [double]$Y, [string]$Expect) {
+function Invoke-FormButton([string]$What, [double[]]$At, [string]$Expect) {
     $m = Get-LogMark
-    Click 0.5 $Y -Relative
+    Click $At[0] $At[1] -Relative
     Wait-LogLine $Expect 15 -Since $m | Out-Null
     Write-Step "pressed $What"
 }
@@ -69,14 +74,14 @@ Save-Screenshot 'given' | Out-Null
 
 # ---- Select Biome: open, filter, sort, select, Search ----
 $opened = Open-SelectBiome 'gui-open'
-if (-not $vanilla -and $opened -notmatch 'data-driven') { throw "expected the data-driven form: $opened" }
+if ($opened -notmatch 'classic form') { throw "expected NC's layout (the classic form): $opened" }
 $biome  = if ($remote) { 'plains' } else { 'desert' }
 
-$m = Get-LogMark
-Click 0.5 $ui.Field -Relative
-Start-Sleep -Milliseconds 400
+Click $ui.Box[0] $ui.Box[1] -Relative   # the filter input
+Start-Sleep -Milliseconds 1200
 Type-Text $biome
-Wait-LogLine "Select Biome: .* filter '$biome' \(\d+ listed\)" 15 -Since $m | Out-Null
+Start-Sleep -Milliseconds 400
+Invoke-FormButton 'the filter' $ui.FilterSubmit "Select Biome: .* filter '$biome' \(\d+ listed\)"
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'gui-filter' | Out-Null
 

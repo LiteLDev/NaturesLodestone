@@ -3,13 +3,13 @@
 // The state of an open screen is a `core::SelectBiomeModel` (filter, sort, selection, button
 // rules) in a per-player `Session`. Two front-ends draw it:
 //
-// - the data-driven `ll::ui::CustomForm` (preferred): one form whose texts, visibility and
-//   enabled flags are observables, so the filter (live, on every edit the client reports), the
-//   sort button and the selection update in place without closing the screen;
-// - the classic `ll::form::SimpleForm` (fallback when the data-driven form can't be shown, or
-//   forced with `/naturescompass gui classic`): rebuilt and re-sent after every click; its title
-//   and buttons carry invisible markers that the RP skin (`ui/nl_gui_screen.json`) uses to draw
-//   NC's two-column layout.
+// - the classic `ll::form::SimpleForm` (default for players with our resource pack): rebuilt and
+//   re-sent after every click; its title and buttons carry invisible markers that the RP skin
+//   (`ui/nl_gui_screen.json`) uses to draw NC's two-column layout;
+// - the data-driven `ll::ui::CustomForm` (players that may lack the pack, or the classic form's
+//   fallback): one form whose texts, visibility and enabled flags are observables, so the filter
+//   (live, on every edit the client reports), the sort button and the selection update in place
+//   without closing the screen.
 //
 // Buttons never keep a `Player*`: callbacks look the player up again by UUID.
 
@@ -45,8 +45,15 @@
 #include "feature/gui/GuiText.h"
 #include "game/WorldDb.h"
 #include "mod/Commands.h"
+#include "mod/Config.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
+#include "mod/ModConfig.h"
+
+#ifdef NL_CLIENT
+#include "client/Client.h"
+#include "mc/client/player/LocalPlayer.h"
+#endif
 #include "mod/Module.h"
 
 namespace nl::feature::gui {
@@ -457,6 +464,18 @@ void closeExisting(Player const& player) {
     if (wasOpen && old->dataDriven && old->form) (void)old->form->close();
 }
 
+/// The player surely has our resource pack (and so the classic form's NC skin): the host of a
+/// local world (the pack is in the client's global stack), or anyone on a BDS that requires it.
+bool hasResourcePack(Player const& player) {
+#ifdef NL_CLIENT
+    auto* local = client::currentPlayer();
+    return local && local->getUuid() == player.getUuid();
+#else
+    (void)player;
+    return config::get<ModConfig>().requireResourcePack;
+#endif
+}
+
 } // namespace
 
 void openSelectBiome(Player& player) {
@@ -469,7 +488,10 @@ void openSelectBiome(Player& player) {
         std::make_shared<Session>(player, locale, SelectBiomeModel(buildRows(player, locale), compassView(player)));
     gSessions[keyOf(session->uuid)] = session;
 
-    auto mode  = frontend();
+    auto mode = frontend();
+    // Auto: NC's look (the skinned classic form) for players with our resource pack, else the
+    // data-driven form, which needs no pack.
+    if (mode == Frontend::Auto && hasResourcePack(player)) mode = Frontend::Classic;
     bool shown = false;
     if (mode != Frontend::Classic) shown = showDdui(player, session);
     if (!shown && mode != Frontend::Ddui) {
