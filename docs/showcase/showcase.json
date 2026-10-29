@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "kind": "video",
+      "src": "search.mp4",
+      "poster": "search-poster.webp",
+      "width": 1280, "height": 720,
+      "title": { "en": "Pick a biome, the compass finds it", "zh-CN": "选一个生物群系，罗盘替你找到" },
+      "caption": { "en": "Right-click the compass, filter Select Biome for \"desert\", pick it and press Search. The HUD shows the desert's coordinates and how far away it is.", "zh-CN": "右键罗盘，在“选择生物群系”里筛选 desert，选中后点击搜索。HUD 随即显示沙漠的坐标和距离。" }
+    },
+    {
+      "kind": "video",
+      "src": "needle.mp4",
+      "poster": "needle-poster.webp",
+      "width": 1280, "height": 720,
+      "title": { "en": "The needle points the way", "zh-CN": "指针指明方向" },
+      "caption": { "en": "Turn around and the needle keeps pointing at the biome it found, like a vanilla compass points at the spawn.", "zh-CN": "原地转一圈，指针始终指向找到的生物群系，就像原版指南针指向出生点。" }
+    },
+    {
+      "kind": "video",
+      "src": "teleport.mp4",
+      "poster": "teleport-poster.webp",
+      "width": 1280, "height": 720,
+      "title": { "en": "Teleport there", "zh-CN": "一键传送" },
+      "caption": { "en": "Operators and players in worlds with cheats can teleport to the biome. They land at a safe height, even if its chunks were not loaded yet.", "zh-CN": "管理员或开启作弊的世界中的玩家可以直接传送过去，落在安全的高度，目标区块尚未加载也没问题。" }
+    },
+    {
+      "kind": "image",
+      "src": "select-biome.webp",
+      "width": 1280, "height": 720,
+      "title": { "en": "Every biome of the world", "zh-CN": "世界中的每一个生物群系" },
+      "caption": { "en": "Select Biome lists every biome the world can generate. Filter it by name, by $tag or by @source, sort it seven ways, and see what a search costs in XP levels.", "zh-CN": "“选择生物群系”列出世界能生成的所有生物群系：可按名称、$标签或 @来源筛选，有七种排序方式，并显示每次搜索消耗的经验等级。" }
+    },
+    {
+      "kind": "image",
+      "src": "hud-found.webp",
+      "width": 1280, "height": 720,
+      "title": { "en": "Found, with coordinates and distance", "zh-CN": "已发现：坐标与距离" },
+      "caption": { "en": "While you hold the compass, the HUD shows its status, the biome, the coordinates and your live distance. Players without the client mod see the same block, drawn by the server's resource pack.", "zh-CN": "手持罗盘时，HUD 显示状态、生物群系、坐标和实时距离。没有安装客户端模组的玩家也能看到同样的信息，由服务器的资源包绘制。" }
+    },
+    {
+      "kind": "image",
+      "src": "hud-found-next.webp",
+      "width": 1280, "height": 720,
+      "title": { "en": "Search for Next", "zh-CN": "搜索下一个" },
+      "caption": { "en": "Search for Next finds another desert, one that is not part of a desert found before.", "zh-CN": "“搜索下一个”会找到另一片沙漠，它与之前找到的沙漠互不相连。" }
+    }
+  ]
+}

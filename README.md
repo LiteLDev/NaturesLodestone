@@ -5,8 +5,9 @@
 
 Find any biome with a compass. NaturesLodestone brings Chaosyr's Java mod [Nature's Compass](https://modrinth.com/mod/natures-compass) to Bedrock, for dedicated servers and single-player worlds.
 
-> [!NOTE]
-> NaturesLodestone is in early development. There is no release yet.
+<img src="docs/showcase/search.webp" alt="Select Biome in Nature's Compass' layout, a desert search and the HUD showing where it was found" width="960">
+
+More pictures and clips are in [docs/showcase](docs/showcase).
 
 ## Using the compass
 

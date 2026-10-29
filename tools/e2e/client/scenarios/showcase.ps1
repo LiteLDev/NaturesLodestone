@@ -60,7 +60,7 @@ foreach ($f in Get-Frames 'needle') { $frames += , @($f, 0.1) }
 Export-Clip 'needle' $frames
 
 # Teleport: Select Biome -> Teleport -> standing in the desert, distance 0.
-$frames = @(@((Get-Png 'gui-found'), 1.2))
+$frames = @(, @((Get-Png 'gui-found'), 1.2))
 foreach ($f in Get-Frames 'teleport') { $frames += , @($f, 0.15) }
 $frames += , @((Get-Png 'teleported'), 2.0)
 Export-Clip 'teleport' $frames

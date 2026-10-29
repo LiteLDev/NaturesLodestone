@@ -6,7 +6,7 @@
       "poster": "search-poster.webp",
       "width": 1280, "height": 720,
       "title": { "en": "Pick a biome, the compass finds it", "zh-CN": "选一个生物群系，罗盘替你找到" },
-      "caption": { "en": "Right-click the compass, type \"desert\" into Select Biome and press Search. The HUD shows the search radius growing, then the desert's coordinates and how far away it is.", "zh-CN": "右键罗盘，在“选择生物群系”里输入 desert 并点击搜索。HUD 上搜索半径逐渐扩大，随后显示沙漠的坐标和距离。" }
+      "caption": { "en": "Right-click the compass, filter Select Biome for \"desert\", pick it and press Search. The HUD shows the desert's coordinates and how far away it is.", "zh-CN": "右键罗盘，在“选择生物群系”里筛选 desert，选中后点击搜索。HUD 随即显示沙漠的坐标和距离。" }
     },
     {
       "kind": "video",
