@@ -1,5 +1,5 @@
 // Debug sub-command of unit U4 (tooling, not gameplay; docs/SPEC.md section 6):
-//   /naturescompass damage <damage>     (op / cheats) sets the damage of the held compass
+//   /naturescompass damage <damage>     (operators) sets the damage of the held compass
 // Used by the e2e scenarios to show the durability bar without running searches.
 
 #include "ll/api/command/CommandHandle.h"
