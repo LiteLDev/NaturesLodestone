@@ -16,18 +16,21 @@ should match the wording of Nature's Compass (they are behaviour), written into 
 
 | Path | What it is |
 | ---- | ---------- |
-| `src/core/` | Pure C++ (no `mc/`/`ll/` includes): `Format.h` (translation formatting), `Glob.h`, `GlobalPos.h`. Static lib `nl-core`, unit-tested in `tests/`. |
+| `src/core/` | Pure C++ (no `mc/`/`ll/` includes): `Format.h` (translation formatting), `Glob.h`, `GlobalPos.h`, and the game-free logic of the units: `BiomeText` (U2), `Spiral` (U3), `SafeHeight.h` (U4), `SelectBiome` (U5), `HudLines` (U6), `CompassAngle` (U7). Static lib `nl-core`, unit-tested in `tests/core/`. |
 | `src/game/` | Game adapters: `WorldDb` (LevelDB JSON + world lifecycle), `Blocks` (states, placement, positions), `Items` (`makeItem`, `itemId`, `isItem`). |
-| `src/feature/compass/` | U1: the compass item data (`CompassData.h`), both config sections (`CompassConfig.h`) and the **contract headers** of the other units (`Biomes.h`, `Search.h`, `Actions.h`, `Gui.h`, `Hud.h`; see docs/SPEC.md 9.1). Their default implementations live in the owners' directories. |
-| `src/client/` | Client side (client build only, files wrapped in `#ifdef NL_CLIENT`): `Client.h` (client instance, local player, `ctr`). |
+| `src/feature/compass/` | U1: the compass item data (`CompassData.h`), both config sections (`CompassConfig.h`) and the **contract headers** of the other units (`Biomes.h`, `Search.h`, `Actions.h`, `Gui.h`, `Hud.h`; see docs/SPEC.md 9.1). Their implementations live in the owners' directories. |
+| `src/feature/{biomes,search,actions,gui,hud,needle}/` | U2-U7: biome catalog, search workers, item use / actions / teleport / durability, Select Biome screen, HUD (server fallback + model), needle target and debug command. |
+| `src/feature/showcase/` | U8: cross-unit selftests (`showcase.*`): the whole compass flow through the contracts. |
+| `src/client/` | Client side (client build only, files wrapped in `#ifdef NL_CLIENT`): `Client.h` (client instance, local player, `ctr`), `hud/` (U6 native HUD overlay), `needle/` (U7 animated needle hook). |
 | `src/mod/` | Entry (`Main.cpp`), `Log.h`, `Module.h`, `Config.h`, `ModConfig.h`, `I18n.h`, `Commands.h`, `Registry.h`. |
 | `src/selftest/` | In-game test framework (`SelfTest.h`) and the foundation tests. |
 | `src/pack/` | `PackDeployer` (BDS: puts the resource pack on the world). |
 | `src/feature/<unit>/` | Feature units (gameplay, server side; may contain `#ifdef NL_CLIENT` parts). |
 | `assets/lang/<locale>/<unit>.json` | Mod translations (server + client mod text), merged into `lang/<locale>.json`. |
 | `assets/pack/bp/` | Behavior pack: `blocks/`, `items/`, `recipes/`, `loot_tables/`, `manifest.json`. |
-| `assets/pack/rp/` | Resource pack: `textures/`, `models/`, fragments `item_texture.d/`, `terrain_texture.d/`, `blocks.d/`, `sounds.d/`, `ui_defs.d/` (`{"ui_defs": [...]}` -> `ui/_ui_defs.json`), `texts.d/<locale>/*.lang`. |
-| `tools/build.ps1` | Builds server and/or client into `bin/<target>/NaturesLodestone/`. |
+| `assets/pack/rp/` | Resource pack: `textures/`, `models/`, `ui/` (Select Biome skin, HUD fallback), fragments `item_texture.d/`, `terrain_texture.d/`, `blocks.d/`, `sounds.d/`, `ui_defs.d/` (`{"ui_defs": [...]}` -> `ui/_ui_defs.json`), `texts.d/<locale>/*.lang`. |
+| `tools/build.ps1` | Builds server and/or client into `bin/<target>/NaturesLodestone/`. Passes `-P <repo root>` to xmake, so it also builds the right sources from a git worktree nested in another checkout. |
+| `docs/showcase/` | Gallery pictures and clips + `showcase.json`, written by the client scenario `showcase` (captions in `tools/e2e/client/scenarios/showcase.json`). |
 | `tools/xmake/assemble.lua` | Post-build: copies binaries, merges lang + pack fragments. |
 | `tools/textures/lib.ps1` | Pixel-art helpers (`Save-PixelArt`, `Merge-Rows`, `Shade-Color`). |
 | `tools/e2e/` | Real-game harnesses (server + client); see `tools/e2e/README.md`. |
@@ -94,6 +97,8 @@ pwsh -NoProfile -File tools/e2e/server/run.ps1 -Scenario smoke       # BDS (4 sl
 pwsh -NoProfile -File tools/e2e/client/run.ps1 -Scenario smoke       # headless client via LeviHeadlessInput
 ```
 
+- In a git worktree under `.claude/worktrees/`, call xmake with `-P .` (`xmake f -P . ...`,
+  `xmake build -P . ...`): without it xmake finds the main checkout's `.xmake/` and builds those sources.
 - `git config --global core.longpaths true` is required (long LeviLamina header paths).
 - `clang-cl` must be on PATH (`C:\Program Files\LLVM\bin`).
 - `xmake-requires.lock` is committed; it holds entries for both target types.

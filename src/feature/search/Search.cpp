@@ -147,6 +147,7 @@ void succeed(Worker const& w) {
     data->succeed(w.biomeId, found.x, found.z, std::move(positions), w.search.samples(), compass::displayCoordinates());
     if (!actions::hasInfiniteXp(*player)) data->damage += 1;
     compass::storeAt(*player, *slot, *data);
+    actions::refreshDurability(*player); // show the new damage on the bar at once (docs/SPEC.md 3.7)
     hud::refresh(*player);
 }
 
@@ -156,7 +157,7 @@ void fail(Worker const& w) {
     auto  slot   = player ? compass::findCompass(*player, w.uid) : std::nullopt;
     auto  data   = slot ? compass::dataAt(*player, *slot) : std::nullopt;
     if (!data) {
-        log().warn("Invalid compass after search");
+        log().warn("BiomeSearchWorker {}: Invalid compass after search", w.logId);
         return;
     }
     data->fail(w.biomeId, w.search.radius(), w.search.samples());

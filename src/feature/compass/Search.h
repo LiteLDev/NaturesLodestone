@@ -5,8 +5,9 @@
 //
 // One cooperative worker per compass (keyed by `CompassData::uid`), run on the server thread
 // within NC's per-tick budget, oldest first. A worker finds its compass again every time it
-// writes (`compass::findCompass(player, uid)`), and stops silently when the player or the
-// compass is gone. These functions do no permission, XP or durability checks: callers
+// writes (`compass::findCompass(player, uid)`); a compass that is gone (dropped, stored) is
+// skipped and the search runs on (its end logs a warning), a player who is offline stops it
+// without a write (docs/SPEC.md 3.3). These functions do no permission, XP or durability checks: callers
 // (src/feature/actions) do them first.
 
 #include <cstdint>

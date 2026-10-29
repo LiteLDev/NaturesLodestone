@@ -51,8 +51,9 @@ build adds native rendering for its local player (HUD overlay, animated needle).
    (dark translucent buttons, two-column layout).
 2. **HUD.** The client build draws NC's HUD natively for its local player with NC's exact layout.
    Every other player (vanilla clients on BDS) gets the same line block as a server-sent, marked
-   title/actionbar string that an RP `hud_screen.json` modification renders as the same block at
-   the same place (section 4.3).
+   title string that an RP `hud_screen.json` modification renders as the same block at the same
+   place (section 4.3). It rides on the vanilla title channel, so a change of the block (e.g. the
+   live distance) replaces a normal title that is on screen at that moment.
 3. **Needle.** Animated through a client hook (client build; also when the modded client joins a
    BDS). Vanilla clients see a static icon (section 8).
 4. **One search worker per compass.** NC keeps one worker on the item object, so one player's
@@ -69,6 +70,21 @@ build adds native rendering for its local player (HUD overlay, animated needle).
    enough (as in NC).
 8. **Recipe saplings.** Bedrock recipes cannot use a "#saplings" tag; there is one recipe per
    sapling type, so the four saplings of one craft must be of the same type (section 2.2).
+9. **Teleport into unloaded chunks.** NC loads the target chunk synchronously. Bedrock can't, so
+   the player waits above the target column until it has loaded (at most 20 s, then back to where
+   they were); the fall distance is reset with the vertical velocity (section 3.5).
+10. **Click sound.** NC plays the button click on the client. We send the UI click (`random.click`)
+    from the server with Search and Search for Next, also when the action is then ignored (broken
+    compass, Next not allowed), like NC's client, which plays it on every press of a button.
+11. **Text handling in the screen.** The filter is case-insensitive for ASCII letters only and the
+    name / source / tags sorts compare UTF-8 bytes (NC: Java `toLowerCase` and UTF-16
+    `compareTo`; identical for every vanilla name). The tags line is cut at 46 characters, not at
+    the pixel width of the row. The found biome is pre-selected only when the player can afford
+    it (NC selects it anyway, although an unaffordable row can't be selected by hand).
+12. **Search robustness.** A Search for Next that runs out of limits after a skipped connected
+    candidate fails like any other search (NC drops it silently and the compass stays
+    Searching); a player who goes offline stops the search at the next tick (NC: runs to its end);
+    a dimension whose biome source is gone fails the search (section 3.3).
 
 ## 2. Blocks and items
 
@@ -83,6 +99,7 @@ No blocks.
 | Creative inventory | Equipment, group `minecraft:itemGroup.name.compass` (next to the compasses) |
 | Tags | `minecraft:compasses` |
 | Off hand | allowed (`minecraft:allow_off_hand`) |
+| Held like | an item, not a tool (`minecraft:hand_equipped` false) |
 | Icon | texture key `naturescompass` (defined by `item_texture.d/needle.json`, owned by U7) |
 | Durability | see 3.7 |
 
@@ -147,9 +164,9 @@ matters: the GUI, every action, the HUD and the needle look at the held stack on
 - Use applies to right-clicking in the air and on a block (NC `use` is reached for both when the
   block does nothing).
 - We (U4): both the air and the block use event count; a block click is left to the block when the
-  player does not sneak and the block is interactive. Events closer than 6 ticks to the previous
-  one (held button, block + air event of one click) belong to the same click: one action per
-  click. The action runs on the next tick (item writes inside the game's use handling could be
+  player does not sneak and the block is interactive. Events within 6 ticks of the previous event
+  (held button, block + air event of one click; the window slides with every event) belong to the
+  same click: one action per click. The action runs on the next tick (item writes inside the game's use handling could be
   overwritten). Log lines: `Compass used by <name>: Select Biome`, `Compass reset by <name>`.
 
 ### 3.3 Search
@@ -165,8 +182,8 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   server tick from `ServerTickEvent.Pre`) and run the workers right after it.
 - **Parameters.** biomeSize = 4. sampleSpace = sampleSpaceModifier * 4 (default 64 blocks).
   maxRadius = radiusModifier * 4 (default 10000 blocks). maxSamples (default 50000). If maxRadius
-  or sampleSpace is 0 the search fails immediately (Not Found, radius 0, 0 samples, no start log
-  line).
+  or sampleSpace is 0 the search fails immediately (Not Found, radius 0, 0 samples; a `Search
+  failed` log line but no start line). A dimension without a biome source fails the search too.
 - **Start position.** Search: the player's block position when the button is pressed (NC trusts
   the client's position; we use the server's). Search for Next: the player's block position.
 - **Dimension.** The player's current dimension at the start, sampled from its generator's biome
@@ -207,9 +224,9 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   infinite materials, `actions::hasInfiniteXp`). Failure: Not Found with the floored radius and
   the samples. The worker finds the compass again by `uid` in its player's inventory (held ones
   first) at every write; when the compass is gone (dropped, stored, on the cursor) the search goes
-  on, progress writes are skipped and the final write logs `Invalid compass after search` (a
-  warning) instead, so a dropped or stored compass stays Searching. When the player is offline at
-  the start of a tick the worker is dropped (`Search stopped` log line, no write) instead of
+  on, progress writes are skipped and the final write logs
+  `BiomeSearchWorker <id>: Invalid compass after search` (a warning) instead, so a dropped or stored compass stays Searching. When the player is offline at
+  the start of a tick the worker is dropped (deviation 1.3.12) (`Search stopped` log line, no write) instead of
   holding the budget (NC keeps it running to its end). NC drops a Search for Next worker silently (no
   write, no log) when a skipped connected candidate exhausts the limits; we fail it like any other
   search, so the compass never stays Searching.
@@ -235,7 +252,7 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
 
 - Permission: `allowTeleport && (operator || world cheats enabled)`. Denied:
   log `Player <name> tried to teleport but does not have permission.` and nothing happens.
-- Height: start at sea level (y 63 in the overworld); each step probe one block up and one block
+- Height (`src/core/SafeHeight.h`): start at sea level (y 63 in the overworld); each step probe one block up and one block
   down from the start (y+k, y-k) while either probe is within the build height and neither is
   valid. Valid = feet and head blocks "free" and the block below not free. Free = air, fire,
   liquid, or replaceable. The up probe wins over the down probe. None found: y = 256.
@@ -248,10 +265,13 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
   height is the dimension's (min y .. max y, exclusive); blocks outside it count as free; the
   y 256 fallback is clamped to the max y. Free = air, `minecraft:fire` / `minecraft:soul_fire`, a
   liquid material, or a block that can be built over. NC loads the target chunk synchronously; we
-  move the player to the target column above the build height, wait (up to 20 s) until the chunk is
-  fully loaded, then probe and teleport (on timeout, logout or mod disable the player goes back;
-  a player who dies or is moved away meanwhile is left alone). Log line:
-  `Player <name> teleported to <x> <y> <z>`.
+  (deviation 1.3.9) teleport at once when the target column is loaded, else move the player to the
+  target column above the build height, wait (up to 20 s) until the chunk is fully loaded, then
+  probe and teleport (on timeout, logout or mod disable the player goes back; a player who dies or
+  is moved away meanwhile is left alone; a second Teleport while waiting is ignored). Vertical
+  velocity and fall distance are reset. Log lines: `Player <name> teleported to <x> <y> <z>`,
+  `Player <name> teleporting to <x> <z>: loading the target`, and the warning
+  `Player <name> teleport to <x> <z> failed: the target did not load`.
 
 ### 3.6 Biome catalog
 
@@ -260,7 +280,8 @@ Server thread, cooperative: one worker per compass (deviation 1.3.4).
 - Per biome: id, dimensions whose generator can produce it, tags, source (namespace), temperature,
   downfall ("Rainfall"), XP cost.
 - XP cost: the first `perBiomeXpLevels` entry whose glob matches the id (entries `"glob,levels"`,
-  levels capped to 3, malformed entries skipped), else `defaultXpLevels`.
+  whitespace-trimmed, levels clamped to 0..3, entries without exactly one comma or with a bad
+  number skipped), else `defaultXpLevels`.
 - Globs (blacklist and XP): anchored; `*` = any run of characters, `?` = one character
   (`core::globMatch`).
 
@@ -367,7 +388,8 @@ We (U2, `src/feature/biomes/`, `src/core/BiomeText.*`):
 
 - Creative: no XP cost, no durability damage; does not grant teleport.
 - Dropping a compass mid-search: the dropped copy stays Searching until it is sneak-used (the
-  worker can't find it in the player's inventory and stops silently).
+  worker can't find it in the player's inventory: it runs on without writing and logs
+  `Invalid compass after search` at its end, 3.3).
 - Only the held compass matters for GUI, actions, HUD and needle.
 - Copies of one compass (creative pick-block / duplication) share its `uid`: a search started on
   one copy stops a search running on another copy of the same player, and a worker writes to the
@@ -383,7 +405,7 @@ We (U2, `src/feature/biomes/`, `src/core/BiomeText.*`):
   and the HUD use the raw name.
 - **Dimensions**: names of the dimensions that can produce the biome: the translation of
   `dimension.<ns>.<path>`, else the path with `_` -> space, capitalised ("Overworld",
-  "The Nether", "The End"); joined with ", "; empty when none.
+  "The End"; we spell `minecraft:nether` "The Nether", Java's id is `the_nether`); joined with ", "; empty when none.
 - **Tags**: the biome's `is_*` tags except `is_overworld`, `is_` stripped, cut at the first `/`.
   For each: if `biome.<ns>.<x>` has a translation, the result is ONLY that string (returned at
   once); else if `category.<ns>.<x>` has one, only that; else the path with `_` -> space,
@@ -425,7 +447,7 @@ NC's only screen (there is no info screen in 3.3.1). NC layout (GUI pixels):
   2. sort Name / Source / Tags / Dimension: `Dimension: <dims>`; otherwise `<Mode>: <value>`,
      e.g. `Levels: 2`, `Rainfall: 0.8`, `Temperature: 0.8` (Java `Float.toString`: shortest
      representation with at least one decimal);
-  3. `Tags: <tags>`, cut with "..." to fit the row;
+  3. `Tags: <tags>`, cut with "..." to fit the row (we: at 46 characters, 1.3.11);
   4. `Source: <source>`.
   Lines 2-4 in 0xff808080 (0xff555555 unaffordable). XP cost > 0: the enchanting-table level
   icon (`level_N` / `level_N_disabled`) at the right edge, size 20, margin 15.
@@ -436,7 +458,8 @@ NC's only screen (there is no info screen in 3.3.1). NC layout (GUI pixels):
   back to Name. The list is always sorted by name first, then stable-sorted by the mode,
   ascending.
 - Filter (search box), recomputed on every change, case-insensitive "contains": `$term` matches
-  the tags text, `@term` matches the source, anything else the display name.
+  the tags text, `@term` matches the source, anything else the display name. (We: ASCII case
+  folding, byte-wise text sorts, Rainfall / Temperature sorted by value; 1.3.11.)
 - On open the found biome (state Found) is pre-selected (we: only when affordable); the filter is empty and the list
   scrolled to the top.
 
@@ -464,7 +487,8 @@ Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
   row) and a label below it with lines 2-4 (grey). Unaffordable rows are disabled buttons
   (greyed by the client). Hidden/disabled states are observables, so nothing is re-sent. The
   JSON-UI skin cannot reach Ore UI screens.
-- **Classic form** (fallback when the data-driven form can't be shown; `/naturescompass gui
+- **Classic form** (fallback when the data-driven form can't be shown, logged as the warning
+  `Select Biome: the data-driven form can't be shown to <player>`; `/naturescompass gui
   classic|ddui|auto` switches it for testing): an `ll::form::SimpleForm` re-sent after every
   click. Its title and buttons carry invisible formatting-code markers
   (`src/feature/gui/GuiMarkers.h`); the RP skin (`ui/nl_gui_screen.json` + the `ui/server_form.json`
@@ -478,7 +502,8 @@ Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
 - Log lines (e2e): `Select Biome opened for <player> (<n> biomes, <data-driven|classic> form,
   selected '<id>')`, `Select Biome: <player> filter '<text>' (<n> listed)`, `... sort by <Mode>`,
   `... selected <id>`, `... chose <Search|Search for Next|Teleport> (<id>)`, `... chose Cancel`,
-  `... closed the screen`.
+  `... closed the screen`. The filter is shown and logged with `§` removed; the log line cuts it
+  at 64 characters + "...".
 
 ### 4.3 HUD
 
@@ -498,7 +523,7 @@ Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
 
 - The biome name on the HUD is the raw translated name (no fixBiomeNames).
 - We (deviation 1.3.2): the client build draws exactly this for its local player. Other players
-  get the block as a marked title/actionbar string from the server, rendered by the RP's
+  get the block as a marked title string from the server, rendered by the RP's
   `hud_screen.json` modification at the same place, with the same colours and line spacing.
 
 **Our implementation** (U6). The line model is `src/core/HudLines.h` (game-free, unit-tested);
@@ -578,17 +603,32 @@ a modded client on BDS uses its own copy for its native HUD.
 
 `/naturescompass reload` reloads both sections (and rebuilds the biome catalog).
 
+### 5.3 `mod.json` (ours, not NC)
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `language` | string | `"en_US"` | language of server messages when a player's own language has no translation |
+| `usePlayerLocale` | bool | `true` | use each player's game language when a translation exists |
+| `requireResourcePack` | bool | `true` | BDS: players must accept the resource pack to join |
+
 ## 6. Commands
 
 NC has no commands. Ours (`/naturescompass`, alias `/natureslodestone`) are tooling only:
 
 | Command | Who | What |
 | --- | --- | --- |
-| `/naturescompass reload` | operators, console | reload configs and translations |
-| `/naturescompass selftest ["glob"]` | operators, console | run the in-game selftests |
+| `/naturescompass reload` | operators, console | reload configs and translations, rebuild the biome catalog |
+| `/naturescompass selftest ["glob"]` | operators, console | run the in-game selftests (no glob: all) |
 | `/naturescompass damage <n>` | operators | debug (U4): set the held compass's `damage` (durability bar in e2e) |
+| `/naturescompass gui <auto\|ddui\|classic>` | operators, console | debug (U5): Select Biome front-end for every player until restart |
+| `/naturescompass gui open` | operators | debug (U5): open Select Biome for the held compass |
+| `/naturescompass hud <searching\|found\|foundnocoords\|notfound\|inactive>` | operators | debug (U6): write a sample state (`minecraft:cherry_grove`) into the held compass |
+| `/naturescompass hud side <LEFT\|RIGHT>`, `hud offset <n>`, `hud chat <on\|off>` | operators | debug (U6): change the loaded `naturescompass_client` values until the next reload |
+| `/naturescompass needle found <x> <z>` | operators | debug (U7): mark the held compass Found (`minecraft:plains`) at x/z |
+| `/naturescompass needle frame` | operators, client build | debug (U7): log `needle: frame <n> (yaw <y>)` for the local player's held compass |
 
-Units may add debug sub-commands through `NL_REGISTER_SUBCOMMAND`; there is no gameplay command.
+Units add debug sub-commands through `NL_REGISTER_SUBCOMMAND`; there is no gameplay command. The
+debug commands of U5 and U7 answer in English only (tooling).
 NC has no advancements besides the two recipe unlocks (2.2), no sounds of its own (Search and
 Search for Next play the UI click), no loot.
 
@@ -643,6 +683,11 @@ the 3.3.1 code no longer uses are kept for completeness. `cancel` is ours (NC us
 | --- | --- | --- |
 | `item.natureslodestone:naturescompass.name` | Nature's Compass | 自然罗盘 |
 
+Our own strings (tooling and names, `nl.<unit>.*`): `assets/lang/<locale>/actions.json`
+(`nl.actions.needOperator`, `nl.actions.noCompass`, `nl.actions.damageSet`), `hud.json`
+(`nl.hud.debug.holdCompass`, `nl.hud.debug.state`) and `mod.json` (`nl.mod.name`:
+"NaturesLodestone" / "自然磁石").
+
 Composite texts are built in code as NC does: `"<label>: <value>"` (e.g. `Sort By: Name`,
 `Dimension: Overworld`, `Levels: 2`) and `"<x>, <z>"`.
 
@@ -658,6 +703,10 @@ Composite texts are built in code as NC does: `"<label>: <value>"` (e.g. `Sort B
 - **Recipe group** "tools" (no Bedrock equivalent).
 - **Client-trusted search start position.** We use the server's view of the player position.
 - **Item frames / dropped compasses spinning** for vanilla clients (part of the needle).
+- **`displayWithChatOpen` and screen-aware hiding for vanilla clients.** The resource pack can't
+  see which screen is open, and Bedrock's screens cover the HUD screen; the client build does both
+  (4.3 "Fallback limits").
+- **The debug screen (F3).** Bedrock has none, so there is nothing for the HUD to hide behind.
 - **Biome sources of other mods** ("Source: <mod name>"): Bedrock has no Java mods; add-on biome
   namespaces show as the raw namespace.
 
@@ -672,26 +721,26 @@ implementation in its own directory without touching other units' files.
 | U1 | `compass` | this spec; `src/game/Items.*`; `src/feature/compass/` (item data, config, contract headers); BP item + recipes; `assets/lang/*/compass.json`; RP `texts.d/*/compass.lang`; `ui_defs.d` merging in `tools/xmake/assemble.lua`; default stubs in the directories below | — | 100..199 |
 | U2 | `biomes` | `src/feature/biomes/` (catalog: tags, hidden filter, names, sources, dimensions), `src/core/BiomeText.h/.cpp` + tests (name fixing, capitalising, tag text), `assets/lang/*/biomes.json` (biome + dimension names) | U1 | 200..299 |
 | U3 | `search` | `src/feature/search/` (worker manager, tick budget, spiral sampling, Search for Next connectivity), `src/core/Spiral.h` + tests | U1 (U2 for biome lookup by id) | 300..399 |
-| U4 | `actions` | `src/feature/actions/` (use handling incl. on blocks, sneak reset, broken; search / searchForNext / teleport incl. XP cost, durability damage + bar, permission, safe-y teleport) | U1, U3 | 400..499 |
-| U5 | `gui` | `src/feature/gui/` (Select Biome via `ll::ui` data-driven form, classic `ll::form` fallback), RP `ui/nl_gui*.json` + `ui_defs.d/gui.json` | U1, U2, U4 | 500..599 |
-| U6 | `hud` | `src/client/hud/` (native overlay), `src/feature/hud/` (server fallback: marked title/actionbar + RP `ui/hud_screen.json` modification), `ui_defs.d/hud.json` | U1, U2 | 600..699 |
-| U7 | `needle` | `tools/textures/compass.ps1` (32 needle frames + icon), `item_texture.d/needle.json` (texture key `naturescompass`), `src/client/needle/` (`ComponentItem::$getIconInfo` hook) | U1 | 700..799 |
-| U8 | `showcase` | full-flow e2e (server + client, local + remote), `docs/showcase/`, README, CHANGELOG | all | 800..899 |
+| U4 | `actions` | `src/feature/actions/` (use handling incl. on blocks, sneak reset, broken; search / searchForNext / teleport incl. XP cost, durability damage + bar, permission, safe-y teleport; `damage` debug command), `src/core/SafeHeight.h`, `assets/lang/*/actions.json` | U1, U3 | 400..499 |
+| U5 | `gui` | `src/feature/gui/` (Select Biome via `ll::ui` data-driven form, classic `ll::form` fallback, `GuiText`, `GuiMarkers.h`), `src/core/SelectBiome.*` + tests, RP `ui/nl_gui_screen.json`, `ui/server_form.json` + `ui_defs.d/gui.json` | U1, U2, U4 | 500..599 |
+| U6 | `hud` | `src/client/hud/` (native overlay), `src/feature/hud/` (`HudModel`, server fallback: marked title + RP `ui/hud_screen.json` modification and `ui/nl_hud.json`), `src/core/HudLines.*` + tests, `ui_defs.d/hud.json`, `assets/lang/*/hud.json` | U1, U2 | 600..699 |
+| U7 | `needle` | `tools/textures/compass.ps1` (32 needle frames + icon), `item_texture.d/needle.json` (texture key `naturescompass`), `src/client/needle/` (`ComponentItem::$getIconInfo` hook), `src/feature/needle/` (target, debug command, selftests), `src/core/CompassAngle.*` + tests | U1 | 700..799 |
+| U8 | `showcase` | `src/feature/showcase/` (cross-unit selftests), the `flow` scenarios (server + client, local + remote-vanilla), the client `showcase` scenario and `docs/showcase/`, README, CHANGELOG | all | 800..899 |
 
 Waves: U1 first (wave 0); U2-U7 in parallel (wave 1) on top of U1's contracts and stubs; U8 last
 (wave 2).
 
 ### 9.1 Contracts (src/feature/compass/)
 
-| Header | Namespace | Default implementation | Owner |
+| Header | Namespace | Implementation | Owner |
 | --- | --- | --- | --- |
-| `CompassData.h` | `nl::feature::compass` | `CompassData.cpp` (final) | U1 |
-| `CompassConfig.h` | `nl::feature::compass` | `CompassConfig.cpp` (final) | U1 |
-| `Biomes.h` | `nl::feature::biomes` | `src/feature/biomes/Biomes.cpp` (registry enumeration, no tags) | U2 |
-| `Search.h` | `nl::feature::search` | `src/feature/search/Search.cpp` (writes Searching, Not Found one tick later) | U3 |
-| `Actions.h` | `nl::feature::actions` | `src/feature/actions/Actions.cpp` (item use -> GUI / sneak reset, XP, stub teleport) | U4 |
-| `Gui.h` | `nl::feature::gui` | `src/feature/gui/Gui.cpp` (classic button form) | U5 |
-| `Hud.h` | `nl::feature::hud` | `src/feature/hud/Hud.cpp` (no-op) | U6 |
+| `CompassData.h` | `nl::feature::compass` | `CompassData.cpp` | U1 |
+| `CompassConfig.h` | `nl::feature::compass` | `CompassConfig.cpp` | U1 |
+| `Biomes.h` | `nl::feature::biomes` | `src/feature/biomes/Biomes.cpp`: the catalog (hidden filter, tags, dimensions, names, blacklist, XP costs); U2 added `temperatureText` / `rainfallText` | U2 |
+| `Search.h` | `nl::feature::search` | `src/feature/search/Search.cpp` + `SearchWorker.h`: the worker manager (after `Level::tick`, NC's budget, compass writes) | U3 |
+| `Actions.h` | `nl::feature::actions` | `src/feature/actions/Actions.cpp` + `ActionsCommands.cpp`: use events, XP, click sound, safe teleport with chunk wait, durability sync; U4 added `search(player, biome, start)` and `refreshDurability` | U4 |
+| `Gui.h` | `nl::feature::gui` | `src/feature/gui/Gui.cpp`: the data-driven `ll::ui::CustomForm` and the classic `ll::form::SimpleForm` with RP skin markers | U5 |
+| `Hud.h` | `nl::feature::hud` | `src/feature/hud/Hud.cpp` + `HudModel.cpp` (server title fallback) and `src/client/hud/HudOverlay.cpp` (native overlay) | U6 |
 
-A unit may add functions to a contract header it depends on only compatibly (add, never change
-or remove) and calls that out in its PR.
+The stubs of wave 0 are all replaced. A unit may add functions to a contract header it depends on
+only compatibly (add, never change or remove) and calls that out in its PR.
