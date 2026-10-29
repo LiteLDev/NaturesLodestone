@@ -34,12 +34,12 @@ Save-Screenshot 'notfound-left' | Out-Null
 # Chat open: still drawn (displayWithChatOpen = true by default).
 Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1500
 Save-Screenshot 'chat-open' | Out-Null
-Press-Key ESCAPE; Start-Sleep -Milliseconds 1500
+Close-Chat
 
 # Any other screen hides it (native overlay).
 Open-Inventory; Start-Sleep -Milliseconds 800
 Save-Screenshot 'inventory' | Out-Null
-Press-Key ESCAPE; Start-Sleep -Milliseconds 1500
+Close-Screen; Start-Sleep -Milliseconds 700
 
 if ($script:Mode -eq 'remote-mod') {
     # The debug side/offset/chat commands change the server's config; the native overlay reads
@@ -73,7 +73,7 @@ Wait-LogLine 'HUD debug displayWithChatOpen false' 15 | Out-Null
 Start-Sleep -Milliseconds 6000
 Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1500
 Save-Screenshot 'chat-hidden' | Out-Null   # native overlay: hidden with chat open
-Press-Key ESCAPE; Start-Sleep -Milliseconds 1500
+Close-Chat
 
 Set-HudState 'inactive'
 Start-Sleep -Milliseconds 6000

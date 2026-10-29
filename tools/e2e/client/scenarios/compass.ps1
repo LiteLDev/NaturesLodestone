@@ -7,7 +7,7 @@ Start-Sleep -Milliseconds 300
 Save-Screenshot 'given' | Out-Null       # hotbar + the item name popup above it
 Press-Key E; Start-Sleep -Milliseconds 1200
 Save-Screenshot 'inventory' | Out-Null
-Press-Key ESCAPE; Start-Sleep -Milliseconds 600
+Close-Screen
 $r = Invoke-SelfTest 'compass.*'
 if ($r.Fail -gt 0) { throw "$($r.Fail) compass selftest(s) failed" }
 if ($r.Pass -lt 6) { throw "expected at least 6 compass selftests to pass, got $($r.Pass)" }

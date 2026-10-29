@@ -9,7 +9,7 @@
 # remote-vanilla / remote-mod (a client without / with the mod on a BDS, flat world): the form
 # opens, Plains is searched from the screen, the HUD renders (vanilla: the server's fallback
 # through the resource pack; modded: the native overlay), and normal /title and actionbar texts
-# still show while and after the compass block is on screen; T + ESCAPE opens and closes the chat.
+# still show while and after the compass block is on screen; T opens the chat, two ESC close it.
 #
 # showcase.ps1 dot-sources this file with $script:FlowFrames = $true to also record frame bursts
 # (frame-<clip>-NNN.png) for the docs/showcase clips.
@@ -128,10 +128,10 @@ if ($remote) {
     Invoke-Chat '/title @s actionbar AfterBar'
     Start-Sleep -Milliseconds 1200
     Save-Screenshot 'actionbar-after-hud' | Out-Null
-    # Chat: T opens it, ESCAPE closes it.
+    # Chat: T opens it, Close-Chat (two ESC) closes it.
     Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1200
     Save-Screenshot 'chat-open' | Out-Null
-    Press-Key ESCAPE; Start-Sleep -Milliseconds 1200
+    Close-Chat
     Save-Screenshot 'chat-closed' | Out-Null
     return
 }
@@ -168,6 +168,15 @@ if ($script:FlowFrames) {
 }
 
 # ---- Search for Next from the screen (the found biome is pre-selected) ----
+# NC's default sample space (64 blocks) from here on: the next desert is a separate patch at
+# least 128 blocks away, as players see it (flow.prelaunch.ps1 used 4 blocks for a slow search).
+$cfgFile = Join-Path (Join-Path (Join-Path $script:ModsDir $script:ModName) 'config') 'naturescompass.json'
+$cfg = Get-Content -Raw $cfgFile | ConvertFrom-Json
+$cfg.sampleSpaceModifier = 16
+$cfg.maxSamples = 50000
+Set-Content -Encoding utf8NoBOM -Path $cfgFile -Value ($cfg | ConvertTo-Json)
+Invoke-Chat '/naturescompass reload'
+Start-Sleep -Seconds 2
 $opened = Open-SelectBiome 'gui-found'
 if ($opened -notmatch "selected 'minecraft:$biome'") { throw "the found biome is not pre-selected: $opened" }
 $m = Get-LogMark
