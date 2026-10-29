@@ -39,13 +39,17 @@ try {
         if ($pf -and (Test-Path (Join-Path $pf 'Microsoft Visual Studio\18'))) { $vsArgs = @('--vs=2026'); break }
     }
 
+    # xmake searches for the project from the working directory upwards and can pick the enclosing
+    # checkout when this one lives under .claude/worktrees/: name the project dir explicitly.
+    $xp = @('-P', $root)
+
     $targets = if ($Target -eq 'all') { @('server', 'client') } else { @($Target) }
     foreach ($t in $targets) {
         Write-Host "==> configuring $t ($Mode)"
-        xmake f -a x64 -m $Mode -p windows --target_type=$t -o "build/$t" @vsArgs -y
+        xmake f @xp -a x64 -m $Mode -p windows --target_type=$t -o (Join-Path $root "build/$t") @vsArgs -y
         if ($LASTEXITCODE) { throw "xmake config failed for $t" }
         Write-Host "==> building $t"
-        xmake build -y NaturesLodestone
+        xmake build @xp -y NaturesLodestone
         if ($LASTEXITCODE) { throw "build failed for $t" }
         $out = Join-Path $root "bin/$t/NaturesLodestone"
         if (-not (Test-Path (Join-Path $out 'NaturesLodestone.dll'))) { throw "missing output $out" }
@@ -53,9 +57,9 @@ try {
     }
     if ($Tests) {
         Write-Host '==> unit tests'
-        xmake build -y nl-tests
+        xmake build @xp -y nl-tests
         if ($LASTEXITCODE) { throw 'nl-tests build failed' }
-        xmake run nl-tests
+        xmake run @xp nl-tests
         if ($LASTEXITCODE) { throw 'unit tests failed' }
     }
 } finally {
