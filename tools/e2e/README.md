@@ -210,17 +210,20 @@ The glob is sent **quoted** (`naturescompass selftest "core.*"`) because `*` is 
 
 ## Pitfalls
 
-- **Headless clicks do nothing (title screen never left, `Player Spawned` times out).** Seen on
-  2026-10-29 after the Microsoft GameInput redistributable was updated on the dev machine: the
-  LeviHeadlessInput trace shows `gameinput: mouseReads=0 ... hooked=false`, so the game no longer
-  reads the virtual mouse. It happens for every scenario and slot (`smoke` too); LeviHeadlessInput
-  needs an update. `-Foreground` (real input, takes over the PC) does not use those hooks; it was
-  not tried.
+- **Headless clicks do nothing, or the local world never loads ("Connecting to multiplayer game",
+  then "Connection timed out").** Both were LeviHeadlessInput problems on an idle PC, fixed in its
+  commit 0dc5b75 (2026-10-29): GameInput reported no mouse until the real mouse moved, and public
+  servers showed up as LAN tiles in front of the test world. Update LeviHeadlessInput if you see
+  them again.
+- **Vanilla clients cache server packs by UUID + version.** Dev builds are all 0.0.1, so remote
+  runs remove our packs from the client's `minecraftpe\packcache` first (`Clear-OurPackCache`).
+  A hand-tested vanilla client needs the same, or it shows an old build's resource pack.
+- **Chat needs two ESC presses** (the first leaves the text box); use `Close-Chat`.
 
 - **Elevated windows block injected input.** While a UAC prompt or a Windows Firewall "allow access" dialog is in the foreground, every click and key is dropped. The input helpers then throw "Minecraft is not the foreground window". Close such dialogs by hand.
 - **Windows Firewall asks once per new executable path.** Each server slot has its own `bedrock_server_mod.exe` path, so slot n's first run can show that dialog. It does not block the server harness, but it can block a client run happening at the same time. Answer it once and it does not come back. Slots 0–2 have already been answered on the dev machine. Keep `NL_E2E_SERVER_SLOTS` small.
 - **Bedrock pauses when it loses focus.** `Focus-Game` brings the window back before each input. Do not use the mouse or keyboard during a client run.
 - **The client window is forced to a 1600x900 client area**, and the harness is DPI-aware, so `-Relative` coordinates are stable.
-- **The "Connection timed out (Kelp)" error** sometimes appears when joining the local world. Once it happens, it tends to repeat for the rest of that game session, so `run.ps1` retries twice and then restarts the game, up to 3 launches. The cause is environmental (the game's online signaling/websocket), not the mod.
+- **The "Connection timed out (Kelp)" error** can still appear when joining the local world. Once it happens, it tends to repeat for the rest of that game session, so `run.ps1` retries twice and then restarts the game, up to 3 launches.
 - **Do not leave worlds or mods behind.** BEI's harness opens the *first* world in the list and loads every mod in `mods\`. `run.ps1` cleans up in `finally`. If you test by hand with `-KeepOpen`, close the game normally so the cleanup runs.
 - The fixture world (`client/fixtures/NL-Test/`) contains only `level.dat`; the game generates flat terrain on load. `client/fixtures/build-fixture.ps1 -Source <world dir|zip>` rebuilds it, for example after a game update. `common/nbt.ps1` reads and writes `level.dat` (`Read-LevelDat`, `Set-NbtValue`, `Show-Nbt`).

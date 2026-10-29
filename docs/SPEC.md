@@ -43,12 +43,15 @@ build adds native rendering for its local player (HUD overlay, animated needle).
 ### 1.3 Decided deviations
 
 1. **Select Biome is a server-driven form.** NC's screen is client code fed by a sync packet. We
-   send a form from the server (an `ll::ui` data-driven `CustomForm` preferred, a classic
-   `ll::form` form as fallback), so it works in local worlds, for modded clients on BDS and for
-   vanilla clients on BDS. Layout content, strings, sort, filter, selection, greying, XP costs
-   and the pre-selection of the found biome follow NC (section 4.2). An RP JSON-UI skin
-   (`ui/nl_gui*.json`, registered through `ui_defs.d/gui.json`) restyles the form toward NC's look
-   (dark translucent buttons, two-column layout).
+   send a form from the server, so it works in local worlds, for modded clients on BDS and for
+   vanilla clients on BDS. Players that have our resource pack (the host of a local world; every
+   player on a BDS with `requireResourcePack`) get a classic `ll::form` form that an RP JSON-UI
+   skin (`ui/nl_gui*.json`, registered through `ui_defs.d/gui.json`) draws in NC's layout (title
+   and button column on the left, search box and Teleport on top, the 4-line biome rows on the
+   right, NC's translucent fills). Others get an `ll::ui` data-driven `CustomForm` with the same
+   contents. Strings, sort, filter, selection, greying, XP costs and the pre-selection of the
+   found biome follow NC (section 4.2). The classic form's search box opens a one-field input
+   (filter on submit, not on every key).
 2. **HUD.** The client build draws NC's HUD natively for its local player with NC's exact layout.
    Every other player (vanilla clients on BDS) gets the same line block as a server-sent, marked
    title string that an RP `hud_screen.json` modification renders as the same block at the same
@@ -467,8 +470,9 @@ NC's only screen (there is no info screen in 3.3.1). NC layout (GUI pixels):
 rules); a sort selector cycling the same modes ("Sort By: <mode>"); the biome rows as buttons
 showing the four lines (unaffordable rows greyed and disabled, level cost shown); the selected
 row highlighted; "Search", "Search for Next" (when visible) and "Teleport" (when visible) with
-NC's active rules; "Cancel" (`string.naturescompass.cancel`). The data-driven `ll::ui` form
-updates in place (filter, sort, selection); the classic-form fallback rebuilds the form instead.
+NC's active rules; "Cancel" (`string.naturescompass.cancel`). The classic form (NC's layout,
+players with our resource pack) is rebuilt and re-sent after every click; the data-driven
+`ll::ui` form (the others) updates in place (filter, sort, selection).
 U5 owns the details; it reads only the contracts (`Biomes.h`, `Actions.h`, `CompassData.h`).
 
 Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
@@ -479,7 +483,10 @@ Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
   (greyed) but can't be selected. A click on the selected row is NC's double click (Search). The
   data the screen shows (catalog, XP level, compass state, `canTeleport`) is read once when it
   opens, like NC's sync packet.
-- **Data-driven form** (default, `ll::ui::CustomForm`, rendered by the client's Ore UI): a text
+- **Front-end choice** (`auto`, the default): the classic form for players that surely have our
+  resource pack (client build: the local world's host; BDS: everyone when `requireResourcePack`
+  is on), else the data-driven form (the classic form if that can't be shown).
+- **Data-driven form** (`ll::ui::CustomForm`, rendered by the client's Ore UI): a text
   field "Search" (the client reports every edit, so the list re-filters live as in NC), then
   Search, Search for Next, Sort By, Teleport, Cancel, a divider and one button + one label per
   biome. Ore UI shows neither formatting codes nor line breaks in button labels, so a row is a
@@ -487,9 +494,10 @@ Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
   row) and a label below it with lines 2-4 (grey). Unaffordable rows are disabled buttons
   (greyed by the client). Hidden/disabled states are observables, so nothing is re-sent. The
   JSON-UI skin cannot reach Ore UI screens.
-- **Classic form** (fallback when the data-driven form can't be shown, logged as the warning
-  `Select Biome: the data-driven form can't be shown to <player>`; `/naturescompass gui
-  classic|ddui|auto` switches it for testing): an `ll::form::SimpleForm` re-sent after every
+- **Classic form** (players with our resource pack, and the fallback when the data-driven form
+  can't be shown, logged as the warning `Select Biome: the data-driven form can't be shown to
+  <player>`; `/naturescompass gui classic|ddui|auto` switches it for testing): an
+  `ll::form::SimpleForm` re-sent after every
   click. Its title and buttons carry invisible formatting-code markers
   (`src/feature/gui/GuiMarkers.h`); the RP skin (`ui/nl_gui_screen.json` + the `ui/server_form.json`
   modification, scoped by the title marker) draws NC's layout from them: title at the top left,
@@ -497,8 +505,12 @@ Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
   top right, Cancel at the bottom left, the search box at (130, 10) and the scrolling list of
   4-line rows (with the enchanting table's level icons `textures/ui/dust_(un)selectable_N`) on
   the right, with NC's fills (0x7F / 0xB8 hovered or selected / 0x2B inactive or unaffordable).
-  The search box opens a one-field input form; the filter applies on submit. Without the RP the
-  classic form is a plain vanilla button list (rows show their first lines).
+  The search box opens a one-field input form; the filter applies on submit. A re-sent form
+  starts scrolled to the top (Bedrock forms keep no scroll position), so after selecting a row
+  far down the list, Search in the left column is the way to search (NC's second click on the
+  row needs scrolling back). Without the RP the classic form is a plain vanilla button list (rows
+  show their first lines); on BDS the classic form is used only when `requireResourcePack` was on
+  when the server started.
 - Log lines (e2e): `Select Biome opened for <player> (<n> biomes, <data-driven|classic> form,
   selected '<id>')`, `Select Biome: <player> filter '<text>' (<n> listed)`, `... sort by <Mode>`,
   `... selected <id>`, `... chose <Search|Search for Next|Teleport> (<id>)`, `... chose Cancel`,

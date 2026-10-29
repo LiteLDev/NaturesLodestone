@@ -224,6 +224,10 @@ NL_REGISTER_SELFTEST("gui.flow_classic", [](Context& ctx) -> ll::coro::CoroTask<
     co_await screenFlow(ctx, gui::Frontend::Classic);
 });
 
+NL_REGISTER_SELFTEST("gui.flow_ddui", [](Context& ctx) -> ll::coro::CoroTask<> {
+    co_await screenFlow(ctx, gui::Frontend::Ddui);
+});
+
 NL_REGISTER_SELFTEST("gui.cancel", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto& player = ctx.player();
     co_await ctx.ticks(1);

@@ -9,7 +9,7 @@
 # remote-vanilla / remote-mod (a client without / with the mod on a BDS, flat world): the form
 # opens, Plains is searched from the screen, the HUD renders (vanilla: the server's fallback
 # through the resource pack; modded: the native overlay), and normal /title and actionbar texts
-# still show while and after the compass block is on screen; T + ESCAPE opens and closes the chat.
+# still show while and after the compass block is on screen; T opens the chat, two ESC close it.
 #
 # showcase.ps1 dot-sources this file with $script:FlowFrames = $true to also record frame bursts
 # (frame-<clip>-NNN.png) for the docs/showcase clips.
@@ -38,9 +38,14 @@ function Save-Burst([string]$Clip, [int]$Mark, [string]$UntilPattern, [int]$Max 
     Write-Step "clip '$Clip': $n frames"
 }
 
-# Data-driven Select Biome form, 1600x900 client area (out/gui/ddui-open.png of the gui scenario):
-# the search field, then Search, Search for Next, Sort By, Teleport, Cancel, then the rows.
-$ui = @{ Field = 0.285; Search = 0.389; Next = 0.472; Sort = 0.555; Teleport = 0.639; Cancel = 0.722; FirstRow = 0.838 }
+# Select Biome in NC's layout (the classic form with the RP skin; out/gui/classic-*.png of the gui
+# scenario), 1600x900 client area, as [x, y] fractions: the search box (opens the filter input),
+# the left column (Search, Search for Next, Sort By 10 px lower), Teleport at the top right, the
+# first list row; the filter input's Search button.
+$ui = @{
+    Box = @(0.375, 0.065); Search = @(0.121, 0.165); Next = @(0.121, 0.249); Sort = @(0.121, 0.365)
+    Teleport = @(0.879, 0.065); FirstRow = @(0.6, 0.208); FilterSubmit = @(0.5, 0.448)
+}
 
 function Open-SelectBiome([string]$Name) {
     $m = Get-LogMark
@@ -51,9 +56,9 @@ function Open-SelectBiome([string]$Name) {
     return $line
 }
 
-function Invoke-FormButton([string]$What, [double]$Y, [string]$Expect) {
+function Invoke-FormButton([string]$What, [double[]]$At, [string]$Expect) {
     $m = Get-LogMark
-    Click 0.5 $Y -Relative
+    Click $At[0] $At[1] -Relative
     Wait-LogLine $Expect 15 -Since $m | Out-Null
     Write-Step "pressed $What"
 }
@@ -69,14 +74,14 @@ Save-Screenshot 'given' | Out-Null
 
 # ---- Select Biome: open, filter, sort, select, Search ----
 $opened = Open-SelectBiome 'gui-open'
-if (-not $vanilla -and $opened -notmatch 'data-driven') { throw "expected the data-driven form: $opened" }
+if ($opened -notmatch 'classic form') { throw "expected NC's layout (the classic form): $opened" }
 $biome  = if ($remote) { 'plains' } else { 'desert' }
 
-$m = Get-LogMark
-Click 0.5 $ui.Field -Relative
-Start-Sleep -Milliseconds 400
+Click $ui.Box[0] $ui.Box[1] -Relative   # the filter input
+Start-Sleep -Milliseconds 1200
 Type-Text $biome
-Wait-LogLine "Select Biome: .* filter '$biome' \(\d+ listed\)" 15 -Since $m | Out-Null
+Start-Sleep -Milliseconds 400
+Invoke-FormButton 'the filter' $ui.FilterSubmit "Select Biome: .* filter '$biome' \(\d+ listed\)"
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'gui-filter' | Out-Null
 
@@ -123,10 +128,10 @@ if ($remote) {
     Invoke-Chat '/title @s actionbar AfterBar'
     Start-Sleep -Milliseconds 1200
     Save-Screenshot 'actionbar-after-hud' | Out-Null
-    # Chat: T opens it, ESCAPE closes it.
+    # Chat: T opens it, Close-Chat (two ESC) closes it.
     Focus-Game; Press-Key T; Start-Sleep -Milliseconds 1200
     Save-Screenshot 'chat-open' | Out-Null
-    Press-Key ESCAPE; Start-Sleep -Milliseconds 1200
+    Close-Chat
     Save-Screenshot 'chat-closed' | Out-Null
     return
 }
@@ -163,6 +168,15 @@ if ($script:FlowFrames) {
 }
 
 # ---- Search for Next from the screen (the found biome is pre-selected) ----
+# NC's default sample space (64 blocks) from here on: the next desert is a separate patch at
+# least 128 blocks away, as players see it (flow.prelaunch.ps1 used 4 blocks for a slow search).
+$cfgFile = Join-Path (Join-Path (Join-Path $script:ModsDir $script:ModName) 'config') 'naturescompass.json'
+$cfg = Get-Content -Raw $cfgFile | ConvertFrom-Json
+$cfg.sampleSpaceModifier = 16
+$cfg.maxSamples = 50000
+Set-Content -Encoding utf8NoBOM -Path $cfgFile -Value ($cfg | ConvertTo-Json)
+Invoke-Chat '/naturescompass reload'
+Start-Sleep -Seconds 2
 $opened = Open-SelectBiome 'gui-found'
 if ($opened -notmatch "selected 'minecraft:$biome'") { throw "the found biome is not pre-selected: $opened" }
 $m = Get-LogMark

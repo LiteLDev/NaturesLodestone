@@ -38,7 +38,7 @@ rowLines(core::BiomeRow const& row, core::BiomeSortMode mode, std::string_view l
 
 /// Which form a screen uses.
 enum class Frontend {
-    Auto,    ///< the data-driven `ll::ui` form, the classic form if it can't be shown
+    Auto,    ///< classic (NC skin) for players with our resource pack, else data-driven (classic if it can't be shown)
     Ddui,    ///< only the data-driven form
     Classic, ///< only the classic `ll::form` form (with the RP skin)
 };

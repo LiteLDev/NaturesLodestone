@@ -431,7 +431,7 @@ function Click([double]$x, [double]$y, [switch]$Relative, [switch]$Right) {
 function Scroll([int]$notches) { Assert-GameForeground; [BsE2E.Native]::Wheel(120 * $notches); Start-Sleep -Milliseconds 200 }
 
 $script:VK = @{
-    ESC = 0x1B; ENTER = 0x0D; BACK = 0x08; TAB = 0x09; SPACE = 0x20; SHIFT = 0x10; CTRL = 0x11
+    ESC = 0x1B; ESCAPE = 0x1B; ENTER = 0x0D; BACK = 0x08; TAB = 0x09; SPACE = 0x20; SHIFT = 0x10; CTRL = 0x11
     LEFT = 0x25; UP = 0x26; RIGHT = 0x27; DOWN = 0x28; F1 = 0x70; F2 = 0x71; F3 = 0x72
 }
 
@@ -662,6 +662,23 @@ function Set-ExternalServer([int]$Port) {
     Write-Step "external server $script:ExternalServerName -> 127.0.0.1:$Port (added in game; list backed up from $file)"
 }
 
+# Drops our packs from the client's cache of server packs (minecraftpe\packcache). The game keys
+# that cache by pack UUID + version, and every dev build is 0.0.1, so a remote run would
+# otherwise show the packs of whichever build this game downloaded first.
+function Clear-OurPackCache {
+    $root = Join-Path $script:RepoRoot 'assets/pack'
+    $ids  = @('rp', 'bp') | ForEach-Object { (Get-Content (Join-Path $root "$_/manifest.json") -Raw | ConvertFrom-Json).header.uuid }
+    $cache = Join-Path (Get-GameDataDir) 'minecraftpe\packcache'
+    if (-not (Test-Path $cache)) { return }
+    foreach ($m in Get-ChildItem -Path $cache -Recurse -Depth 2 -Filter manifest.json -ErrorAction SilentlyContinue) {
+        $uuid = try { (Get-Content $m.FullName -Raw | ConvertFrom-Json).header.uuid } catch { $null }
+        if ($uuid -and $ids -contains $uuid) {
+            Remove-Item -Recurse -Force $m.DirectoryName
+            Write-Step "removed cached server pack $uuid ($($m.DirectoryName))"
+        }
+    }
+}
+
 # Drops our entries from the game's server list (the game must not be running: it rewrites the
 # file from memory when it exits).
 function Clear-OurServerEntries {
@@ -759,6 +776,8 @@ $script:HostCmd = 0
 # Open the survival inventory (E) and wait for it to render.
 function Open-Inventory { Focus-Game; Press-Key E; Start-Sleep -Milliseconds 1200 }
 function Close-Screen { Press-Key ESC; Start-Sleep -Milliseconds 800 }
+# Chat takes two: the first ESC leaves the text box, the second closes the screen.
+function Close-Chat { Press-Key ESC; Start-Sleep -Milliseconds 600; Press-Key ESC; Start-Sleep -Milliseconds 1200 }
 
 # Run a chat command, e.g. Invoke-Chat '/give @s diamond 16'
 function Invoke-Chat([string]$text) {
