@@ -195,7 +195,27 @@ The glob is sent **quoted** (`naturescompass selftest "core.*"`) because `*` is 
 - **`selftest.json`** has every `Invoke-SelfTest` result.
 - **Screenshots:** open them with the Read tool, which shows images. They are the evidence that a UI feature works. A 1280x720 screenshot point `(px, py)` is `-Relative (px/1280) (py/720)` for `Click`. On failure the client saves `failure.png`, plus `join-failed-N.png` if entering the world failed.
 
+## Integration scenarios
+
+- `server/run.ps1 -Scenario flow`: a DEFAULT world; the `showcase.*` selftests run the whole compass
+  flow (Search with XP, Found on the HUD, Search for Next, durability, teleport, sneak reset, repair
+  recipe) and the scenario checks NC's log lines.
+- `client/run.ps1 -Scenario flow`: the same flow through the real client (right-click, Select Biome,
+  filter, Sort By, Search, HUD, needle, Search for Next, Teleport, sneak reset) in a DEFAULT local
+  world with a slow search config (`flow.prelaunch.ps1`), then the selftests of every unit.
+  `-Mode remote-vanilla` checks the form, the server's fallback HUD and normal titles / actionbar
+  next to it on a BDS.
+- `client/run.ps1 -Scenario showcase`: the client flow with frame bursts, encoded with ffmpeg into
+  `docs/showcase/` (webp pictures, mp4 + animated webp clips, `showcase.json`).
+
 ## Pitfalls
+
+- **Headless clicks do nothing (title screen never left, `Player Spawned` times out).** Seen on
+  2026-10-29 after the Microsoft GameInput redistributable was updated on the dev machine: the
+  LeviHeadlessInput trace shows `gameinput: mouseReads=0 ... hooked=false`, so the game no longer
+  reads the virtual mouse. It happens for every scenario and slot (`smoke` too); LeviHeadlessInput
+  needs an update. `-Foreground` (real input, takes over the PC) does not use those hooks; it was
+  not tried.
 
 - **Elevated windows block injected input.** While a UAC prompt or a Windows Firewall "allow access" dialog is in the foreground, every click and key is dropped. The input helpers then throw "Minecraft is not the foreground window". Close such dialogs by hand.
 - **Windows Firewall asks once per new executable path.** Each server slot has its own `bedrock_server_mod.exe` path, so slot n's first run can show that dialog. It does not block the server harness, but it can block a client run happening at the same time. Answer it once and it does not come back. Slots 0–2 have already been answered on the dev machine. Keep `NL_E2E_SERVER_SLOTS` small.
