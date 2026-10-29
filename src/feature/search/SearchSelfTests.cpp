@@ -157,6 +157,33 @@ NL_REGISTER_SELFTEST("search.sample_overworld", [](Context& ctx) -> ll::coro::Co
     ctx.info("overworld biome at spawn: " + id + ", " + std::to_string(ys.size()) + " y levels");
 });
 
+// The generator's biome away from the origin agrees with the generated chunk there (a scale or
+// coordinate mix-up in the sampling only shows far from 0, 0).
+NL_REGISTER_SELFTEST("search.sample_matches_chunks", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto& player = ctx.player();
+    co_await ctx.ticks(1);
+    auto const origin = player.getFeetBlockPos();
+    int        agree = 0, total = 0;
+    for (auto [dx, dz] : {std::pair{420, 180}, std::pair{-260, 520}, std::pair{610, -330}}) {
+        BlockPos pos{origin.x + dx, 0, origin.z + dz};
+        if (!co_await ctx.ensureLoaded(nl::core::GlobalPos{0, pos.x, origin.y, pos.z})) {
+            ctx.info("chunk at " + std::to_string(pos.x) + ", " + std::to_string(pos.z) + " did not load");
+            continue;
+        }
+        auto& region = player.getDimensionBlockSource();
+        pos.y        = region.getAboveTopSolidBlock(pos.x, pos.z, false, false);
+        auto id      = search::sampleBiomeId(kOverworld, pos.x, pos.y, pos.z);
+        auto raw     = region.getBiome(pos).mHash->getString();
+        auto loaded  = raw.starts_with("minecraft:") ? raw : "minecraft:" + raw;
+        ++total;
+        if (id == loaded) ++agree;
+        ctx.info("at " + std::to_string(pos.x) + " " + std::to_string(pos.y) + " " + std::to_string(pos.z)
+                 + ": generator " + id + ", chunk " + loaded);
+    }
+    ctx.require(total > 0, "a far chunk loaded");
+    ctx.check(agree == total, std::to_string(agree) + "/" + std::to_string(total) + " far samples match their chunks");
+});
+
 NL_REGISTER_SELFTEST("search.found_at_start", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto& player = ctx.player();
     co_await ctx.ticks(1);
