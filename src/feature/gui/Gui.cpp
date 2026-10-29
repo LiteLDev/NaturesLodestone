@@ -49,12 +49,12 @@
 #include "mod/I18n.h"
 #include "mod/Log.h"
 #include "mod/ModConfig.h"
+#include "mod/Module.h"
 
 #ifdef NL_CLIENT
 #include "client/Client.h"
 #include "mc/client/player/LocalPlayer.h"
 #endif
-#include "mod/Module.h"
 
 namespace nl::feature::gui {
 
@@ -464,6 +464,10 @@ void closeExisting(Player const& player) {
     if (wasOpen && old->dataDriven && old->form) (void)old->form->close();
 }
 
+/// BDS: `requireResourcePack` as the server enforces it (PackDeployer applies it at install; a
+/// later reload does not make players that joined without the pack get it).
+bool gPackRequired = false;
+
 /// The player surely has our resource pack (and so the classic form's NC skin): the host of a
 /// local world (the pack is in the client's global stack), or anyone on a BDS that requires it.
 bool hasResourcePack(Player const& player) {
@@ -472,7 +476,7 @@ bool hasResourcePack(Player const& player) {
     return local && local->getUuid() == player.getUuid();
 #else
     (void)player;
-    return config::get<ModConfig>().requireResourcePack;
+    return gPackRequired;
 #endif
 }
 
@@ -570,6 +574,7 @@ namespace {
 class GuiModule {
 public:
     void install() {
+        gPackRequired = config::get<ModConfig>().requireResourcePack;
         if (mHooked) return;
         mHooked = true;
         game::db::onWorldClosed([] { gSessions.clear(); });

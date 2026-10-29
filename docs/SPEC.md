@@ -505,8 +505,12 @@ Implementation (U5, `src/feature/gui/`, model in `src/core/SelectBiome.h`):
   top right, Cancel at the bottom left, the search box at (130, 10) and the scrolling list of
   4-line rows (with the enchanting table's level icons `textures/ui/dust_(un)selectable_N`) on
   the right, with NC's fills (0x7F / 0xB8 hovered or selected / 0x2B inactive or unaffordable).
-  The search box opens a one-field input form; the filter applies on submit. Without the RP the
-  classic form is a plain vanilla button list (rows show their first lines).
+  The search box opens a one-field input form; the filter applies on submit. A re-sent form
+  starts scrolled to the top (Bedrock forms keep no scroll position), so after selecting a row
+  far down the list, Search in the left column is the way to search (NC's second click on the
+  row needs scrolling back). Without the RP the classic form is a plain vanilla button list (rows
+  show their first lines); on BDS the classic form is used only when `requireResourcePack` was on
+  when the server started.
 - Log lines (e2e): `Select Biome opened for <player> (<n> biomes, <data-driven|classic> form,
   selected '<id>')`, `Select Biome: <player> filter '<text>' (<n> listed)`, `... sort by <Mode>`,
   `... selected <id>`, `... chose <Search|Search for Next|Teleport> (<id>)`, `... chose Cancel`,
