@@ -171,7 +171,7 @@
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
       {
         "binding_type": "view",
-        "source_property_name": "(((#form_button_text - '§n§c§2§r') = #form_button_text) and ((#form_button_text - '§n§c§4§r') = #form_button_text))",
+        "source_property_name": "((#form_button_text - '§n§c§2§r' - '§n§c§4§r') = #form_button_text)",
         "target_property_name": "#visible"
       }
     ],
@@ -179,7 +179,7 @@
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
       {
         "binding_type": "view",
-        "source_property_name": "((not ((#form_button_text - '§n§c§2§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§4§r') = #form_button_text)))",
+        "source_property_name": "(not ((#form_button_text - '§n§c§2§r' - '§n§c§4§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ]
@@ -194,7 +194,7 @@
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
       {
         "binding_type": "view",
-        "source_property_name": "((not ((#form_button_text - '§n§c§1§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§2§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§a§r') = #form_button_text)))",
+        "source_property_name": "(not ((#form_button_text - '§n§c§b§r' - '§n§c§2§r' - '§n§c§a§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
@@ -225,7 +225,7 @@
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
       {
         "binding_type": "view",
-        "source_property_name": "((not ((#form_button_text - '§n§c§3§r') = #form_button_text)) or (not ((#form_button_text - '§n§c§4§r') = #form_button_text)))",
+        "source_property_name": "(not ((#form_button_text - '§n§c§3§r' - '§n§c§4§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
@@ -314,7 +314,7 @@
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
       {
         "binding_type": "view",
-        "source_property_name": "((#form_button_text - '§n§c§1§r' - '§n§c§2§r' - '§n§c§a§r' - '§n§c§3§r' - '§n§c§4§r' - '§n§c§5§r' - '§n§c§9§r') = #form_button_text)",
+        "source_property_name": "((#form_button_text - '§n§c§b§r' - '§n§c§2§r' - '§n§c§a§r' - '§n§c§3§r' - '§n§c§4§r' - '§n§c§5§r' - '§n§c§9§r') = #form_button_text)",
         "target_property_name": "#visible"
       }
     ],
@@ -399,7 +399,7 @@
             { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
             {
               "binding_type": "view",
-              "source_property_name": "(((#form_button_text - '§n§c§7§r') = #form_button_text) and ((#form_button_text - '§n§c§8§r') = #form_button_text))",
+              "source_property_name": "((#form_button_text - '§n§c§7§r' - '§n§c§8§r') = #form_button_text)",
               "target_property_name": "#visible"
             }
           ],
