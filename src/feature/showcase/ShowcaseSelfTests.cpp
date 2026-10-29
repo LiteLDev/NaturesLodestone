@@ -1,6 +1,8 @@
 // Selftests of unit U8 `showcase` (selftest dx 800..899): the units working together on one
-// compass, through the contracts only (actions -> search -> compass data -> HUD lines), as a
-// player would use it (docs/SPEC.md 3.2 - 3.7, 4.3).
+// compass (actions -> search -> compass data -> HUD lines), as a player would use it
+// (docs/SPEC.md 3.2 - 3.7, 4.3). Driven through the contracts; the checks also read some unit
+// internals (search::sampleBiomeId / yLevelsFor, hud::linesFor, actions::teleportPending /
+// safeTeleportY / kBarMaxDamage), so changes to those must keep these tests building.
 //
 // `showcase.flow_real_biomes` needs a world with real biomes (the `flow` server scenario runs a
 // DEFAULT world); on the FLAT e2e world it skips itself. The other tests run anywhere.
@@ -122,24 +124,31 @@ bool singleBiomeOverworld(BlockPos const& at) {
 }
 
 /// Some point of the straight line between two finds is another biome (they are separate
-/// patches, as Search for Next promises).
-bool separatedOnLine(std::string const& biome, compass::PrevPos const& a, compass::PrevPos const& b) {
-    int steps = 64;
-    for (int i = 1; i < steps; i++) {
-        double t = static_cast<double>(i) / steps;
-        int    x = static_cast<int>(a.x + (b.x - a.x) * t);
-        int    z = static_cast<int>(a.z + (b.z - a.z) * t);
+/// patches, as Search for Next promises). Samples the line points of NC's connection check
+/// (docs/SPEC.md 3.3: N = d / sampleSpace, t = i / N) at the search's y levels, so a gap the
+/// search saw is seen here too.
+bool separatedOnLine(std::string const& biome, compass::PrevPos const& a, compass::PrevPos const& b, int startY) {
+    double dx = b.x - a.x, dz = b.z - a.z;
+    int    n  = static_cast<int>(std::sqrt(dx * dx + dz * dz) / compass::sampleSpace());
+    auto   ys = search::yLevelsFor(kOverworld, startY);
+    for (int i = 1; i < n; i++) {
+        double t     = static_cast<double>(i) / n;
+        int    x     = static_cast<int>(a.x + dx * t);
+        int    z     = static_cast<int>(a.z + dz * t);
         bool   match = false;
-        for (int y : search::yLevelsFor(kOverworld, a.y))
+        for (int y : ys)
             if (search::sampleBiomeId(kOverworld, x, y, z) == biome) match = true;
         if (!match) return true;
     }
     return false;
 }
 
+/// NC "free" (docs/SPEC.md 3.5): air, fire, liquid or replaceable.
 bool isFree(BlockSource& region, BlockPos const& pos) {
     auto const& block = region.getBlock(pos);
     if (block.isAir() || block.getMaterial().mLiquid) return true;
+    auto const& name = block.getTypeName();
+    if (name == "minecraft:fire" || name == "minecraft:soul_fire") return true;
     return block.getBlockType().canBeBuiltOver(block, region, pos);
 }
 
@@ -199,6 +208,7 @@ NL_REGISTER_SELFTEST("showcase.flow_real_biomes", [](Context& ctx) -> ll::coro::
     ctx.info("desert at " + std::to_string(d.foundX) + ", " + std::to_string(d.foundZ));
 
     // Search for Next: another level, a separate desert, the second success breaks the compass.
+    int nextStartY = player.getFeetBlockPos().y;
     actions::searchForNext(player);
     ctx.check(levelOf(player) == 3, "Search for Next takes the level too");
     ctx.require(heldData(ctx, player).state == CompassState::Searching, "Search for Next started");
@@ -210,7 +220,7 @@ NL_REGISTER_SELFTEST("showcase.flow_real_biomes", [](Context& ctx) -> ll::coro::
         std::hypot(double(next.x - first.x), double(next.z - first.z)) > 2.0 * compass::sampleSpace(),
         "the next desert is not next to the first"
     );
-    ctx.check(separatedOnLine(biome, first, next), "another biome lies between the two deserts");
+    ctx.check(separatedOnLine(biome, first, next, nextStartY),"another biome lies between the two deserts");
     ctx.check(d.damage == 2 && compass::isBroken(d), "two successes: broken");
     ctx.info("next desert at " + std::to_string(next.x) + ", " + std::to_string(next.z));
 
@@ -233,6 +243,7 @@ NL_REGISTER_SELFTEST("showcase.flow_real_biomes", [](Context& ctx) -> ll::coro::
             && !isFree(region, BlockPos{feet.x, feet.y - 1, feet.z}),
         "lands safely: feet and head free, solid below (y " + std::to_string(feet.y) + ")"
     );
+    ctx.check(feet.y == actions::safeTeleportY(region, 63, feet.x, feet.z), "at NC's teleport height");
     lines = hud::linesFor(player, "en_US");
     ctx.check(lineText(lines, 10) == "0", "HUD distance 0 after the teleport (" + lineText(lines, 10) + ")");
 
@@ -269,8 +280,10 @@ NL_REGISTER_SELFTEST("showcase.durability_and_xp", [](Context& ctx) -> ll::coro:
     }
     ctx.check(compass::isBroken(heldData(ctx, player)), "broken after compassDurability successes");
     co_await ctx.ticks(12); // the bar follows `damage` within 10 ticks (docs/SPEC.md 3.7)
+    auto held = compass::heldCompass(player);
+    ctx.require(held.has_value(), "the compass is still held");
     ctx.check(
-        compass::stackAt(player, *compass::heldCompass(player)).getDamageValue() == actions::kBarMaxDamage - 1,
+        compass::stackAt(player, *held).getDamageValue() == actions::kBarMaxDamage - 1,
         "the durability bar is empty (9999)"
     );
     actions::search(player, here);
